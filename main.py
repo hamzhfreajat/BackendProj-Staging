@@ -1149,6 +1149,7 @@ def read_ads(
     only_others: bool = False,
     location_search: str = None,
     phone: str = None,
+    duplicate_status: str = None,
     current_user: models.User = Depends(get_optional_user),
     db: Session = Depends(get_db),
     background_tasks: BackgroundTasks = None
@@ -1302,6 +1303,9 @@ def read_ads(
         
     if source_type:
         query = query.filter(models.Ad.source_type == source_type)
+
+    if duplicate_status:
+        query = query.filter(models.Ad.duplicate_status == duplicate_status)
         
     if tags:
         from sqlalchemy import Integer
@@ -1572,6 +1576,7 @@ def get_ads_count(
     only_others: bool = False,
     location_search: str = None,
     phone: str = None,
+    duplicate_status: str = None,
     db: Session = Depends(get_db)
 ):
     query = db.query(models.Ad)
@@ -1689,6 +1694,9 @@ def get_ads_count(
         
     if source_type:
         query = query.filter(models.Ad.source_type == source_type)
+
+    if duplicate_status:
+        query = query.filter(models.Ad.duplicate_status == duplicate_status)
         
     if tags:
         from sqlalchemy import Integer

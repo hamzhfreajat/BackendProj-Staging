@@ -150,4 +150,16 @@ def check_duplicates(ad_id: int, db: Session = Depends(get_db)):
         ))
         
     results.sort(key=lambda x: x.total_score, reverse=True)
+    
+    # Save the highest score and corresponding status to the target ad
+    if results:
+        highest_cand = results[0]
+        target_ad.highest_duplicate_score = highest_cand.total_score
+        target_ad.duplicate_status = highest_cand.status
+    else:
+        target_ad.highest_duplicate_score = 0
+        target_ad.duplicate_status = DuplicateStatus.ACCEPTED
+        
+    db.commit()
+    
     return results

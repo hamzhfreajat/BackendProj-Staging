@@ -453,6 +453,8 @@ class Ad(AdBase):
     is_hot: bool = False
     is_published: bool = False
     is_featured: bool = False
+    duplicate_status: Optional[str] = None
+    highest_duplicate_score: Optional[int] = None
     linked_tags: Optional[List[Tag]] = []
     
     @field_validator('location', mode='before')

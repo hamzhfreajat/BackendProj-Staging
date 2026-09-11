@@ -269,6 +269,9 @@ class Ad(Base):
     # Pay-Per-Click Bidding
     cpc_bid = Column(DECIMAL(10, 2), default=0.00)
     
+    duplicate_status = Column(String(50), nullable=True)
+    highest_duplicate_score = Column(Integer, nullable=True)
+    
     last_republished_at = Column(TIMESTAMP, nullable=True)
     republish_notification_sent = Column(Boolean, default=False)
     
