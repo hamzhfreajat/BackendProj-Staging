@@ -269,9 +269,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 app.include_router(fb_batch_router)
 app.include_router(fb_publisher_router)
 
+from duplicate_detection_router import router as duplicate_router
 from routers import users_admin_router
 import wallet_router
 app.include_router(users_admin_router.router)
+app.include_router(duplicate_router)
 app.include_router(wallet_router.router)
 
 app.include_router(ai_router)
