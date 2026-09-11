@@ -39,10 +39,12 @@ def check_duplicates(ad_id: int, db: Session = Depends(get_db)):
     si = AdSearchIndex
     
     # Base filter
+    si = AdSearchIndex
+    si_filter_date = datetime.utcnow() - timedelta(days=60)
     query = db.query(si, Ad).join(Ad, Ad.id == si.ad_id).filter(
         si.ad_id != ad_id,
         si.category_id == target_index.category_id,
-        Ad.created_at >= func.now() - text("INTERVAL '60 days'")
+        Ad.created_at >= si_filter_date
     )
     
     # City and Region matching (handle nulls safely)
