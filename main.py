@@ -1196,8 +1196,10 @@ def read_ads(
             pass
     log_query = original_search if original_search else search
     if search:
-        if search.strip().isdigit():
-            query = query.filter(models.Ad.id == int(search.strip()))
+        search_parts = search.replace(",", " ").split()
+        if search_parts and all(part.isdigit() for part in search_parts):
+            ad_ids = [int(p) for p in search_parts]
+            query = query.filter(models.Ad.id.in_(ad_ids))
         else:
             ranked_ad_ids = SearchService.search_properties(db, search, limit=1000)
             
@@ -1613,8 +1615,10 @@ def get_ads_count(
         except:
             pass
     if search:
-        if search.strip().isdigit():
-            query = query.filter(models.Ad.id == int(search.strip()))
+        search_parts = search.replace(",", " ").split()
+        if search_parts and all(part.isdigit() for part in search_parts):
+            ad_ids = [int(p) for p in search_parts]
+            query = query.filter(models.Ad.id.in_(ad_ids))
         else:
             ranked_ad_ids = SearchService.search_properties(db, search, limit=1000)
             
