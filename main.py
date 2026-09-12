@@ -1196,24 +1196,27 @@ def read_ads(
             pass
     log_query = original_search if original_search else search
     if search:
-        ranked_ad_ids = SearchService.search_properties(db, search, limit=1000)
-        
-        # Log the search query and results count in background
-        if background_tasks and log_query and log_query.strip():
-            user_id_val = current_user.id if hasattr(current_user, 'id') else None
-            background_tasks.add_task(log_search_query_task, log_query, len(ranked_ad_ids), user_id_val, category_id, tags)
-
-        if not ranked_ad_ids:
-            return []
+        if search.strip().isdigit():
+            query = query.filter(models.Ad.id == int(search.strip()))
+        else:
+            ranked_ad_ids = SearchService.search_properties(db, search, limit=1000)
             
-        query = query.filter(models.Ad.id.in_(ranked_ad_ids))
-        
-        # Preserve relevance ranking from SearchService
-        order_cases = {ad_id: index for index, ad_id in enumerate(ranked_ad_ids)}
-        whens = [(models.Ad.id == ad_id, index) for ad_id, index in order_cases.items()]
-        
-        if whens:
-            query = query.order_by(effective_bid.desc(), case(*whens))
+            # Log the search query and results count in background
+            if background_tasks and log_query and log_query.strip():
+                user_id_val = current_user.id if hasattr(current_user, 'id') else None
+                background_tasks.add_task(log_search_query_task, log_query, len(ranked_ad_ids), user_id_val, category_id, tags)
+
+            if not ranked_ad_ids:
+                return []
+                
+            query = query.filter(models.Ad.id.in_(ranked_ad_ids))
+            
+            # Preserve relevance ranking from SearchService
+            order_cases = {ad_id: index for index, ad_id in enumerate(ranked_ad_ids)}
+            whens = [(models.Ad.id == ad_id, index) for ad_id, index in order_cases.items()]
+            
+            if whens:
+                query = query.order_by(effective_bid.desc(), case(*whens))
     elif background_tasks and log_query and log_query.strip():
         user_id_val = current_user.id if hasattr(current_user, 'id') else None
         total_results = query.count()
@@ -1610,12 +1613,15 @@ def get_ads_count(
         except:
             pass
     if search:
-        ranked_ad_ids = SearchService.search_properties(db, search, limit=1000)
-        
-        if not ranked_ad_ids:
-            return {"total_count": 0}
+        if search.strip().isdigit():
+            query = query.filter(models.Ad.id == int(search.strip()))
+        else:
+            ranked_ad_ids = SearchService.search_properties(db, search, limit=1000)
             
-        query = query.filter(models.Ad.id.in_(ranked_ad_ids))
+            if not ranked_ad_ids:
+                return {"total_count": 0}
+                
+            query = query.filter(models.Ad.id.in_(ranked_ad_ids))
         
     if location and not ignore_location:
         parent_loc = None
