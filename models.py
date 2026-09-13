@@ -272,6 +272,9 @@ class Ad(Base):
     duplicate_status = Column(String(50), nullable=True)
     highest_duplicate_score = Column(Integer, nullable=True)
     
+    market_price_status = Column(String(50), nullable=True)
+    market_average_price = Column(DECIMAL(10, 2), nullable=True)
+    
     last_republished_at = Column(TIMESTAMP, nullable=True)
     republish_notification_sent = Column(Boolean, default=False)
     

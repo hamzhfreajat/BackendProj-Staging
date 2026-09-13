@@ -2181,6 +2181,7 @@ def create_ad(
     
     # Sync to search index
     SearchService.sync_ad_to_search_index(db, db_ad)
+    background_tasks.add_task(background_calculate_fair_price, db_ad.id)
 
     # Trigger saved searches alerts
     from observer import trigger_saved_filter_notifications
@@ -2337,6 +2338,7 @@ def update_ad(
     
     # Sync to search index
     SearchService.sync_ad_to_search_index(db, db_ad)
+    background_tasks.add_task(background_calculate_fair_price, db_ad.id)
     
     # Notify: Ad submitted confirmation to the owner if transitioned from unpublished to published
     if was_unpublished and is_now_published:
@@ -2615,6 +2617,7 @@ def republish_ad(ad_id: int, current_user: models.User = Depends(auth.get_curren
     
     # Sync back to search index
     SearchService.sync_ad_to_search_index(db, db_ad)
+    background_tasks.add_task(background_calculate_fair_price, db_ad.id)
     
     return db_ad
 
@@ -3534,3 +3537,15 @@ def update_version_config(req: AppConfigUpdate, current_admin: models.User = Dep
 # Trigger reload
 
 # Trigger reload 2
+
+def background_calculate_fair_price(ad_id: int):
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        from market_analysis_service import MarketAnalysisService
+        MarketAnalysisService.calculate_and_save(ad_id, db)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Error calculating fair price for ad {ad_id}: {e}")
+    finally:
+        db.close()

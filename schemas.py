@@ -455,6 +455,8 @@ class Ad(AdBase):
     is_featured: bool = False
     duplicate_status: Optional[str] = None
     highest_duplicate_score: Optional[int] = None
+    market_price_status: Optional[str] = None
+    market_average_price: Optional[float] = None
     linked_tags: Optional[List[Tag]] = []
     
     @field_validator('location', mode='before')
