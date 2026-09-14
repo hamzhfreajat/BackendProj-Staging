@@ -32,8 +32,8 @@ engine = create_engine(
     },
     pool_pre_ping=True,
     pool_recycle=300, # Recycle connections every 5 minutes
-    pool_size=20,     # Increased pool size to prevent starvation under load
-    max_overflow=30,  # Increased overflow to handle traffic spikes
+    pool_size=5,      # Lowered for staging limits to prevent starvation under load
+    max_overflow=10,  # Lowered for staging limits to handle traffic spikes
     pool_timeout=30
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -44,5 +44,8 @@ def get_db():
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
