@@ -1658,32 +1658,67 @@ def aggregate_ads(
                 prefix, val = tag.split(":", 1)
                 if prefix == "bedrooms":
                     vals = val.split(",")
-                    val_ints = [int(v) for v in vals if v.isdigit()]
-                    conditions = [cast(models.AdSearchIndex.search_text, String).ilike(f"%bedrooms:{v}%") | cast(models.AdSearchIndex.search_text, String).ilike(f"%rooms:{v}%") for v in vals]
-                    if val_ints:
-                        conditions.append(models.AdSearchIndex.bedrooms.in_(val_ints))
-                    if '+6' in vals or '6+' in vals:
-                        conditions.append(models.AdSearchIndex.bedrooms >= 6)
+                    conditions = []
+                    for v in vals:
+                        if v == '+6' or v == '6+':
+                            conditions.extend([
+                                models.Ad.attributes['rooms'].astext == '+6',
+                                models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%6%'),
+                                models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%7%'),
+                                models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%6%'),
+                                models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%7%')
+                            ])
+                        elif v == 'ستوديو':
+                            conditions.extend([
+                                models.Ad.attributes['rooms'].astext == '0',
+                                models.Ad.attributes['rooms'].astext == 'ستوديو',
+                                models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%ستوديو%'),
+                                models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%0%'),
+                                models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%ستوديو%'),
+                                models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%0%')
+                            ])
+                        else:
+                            conditions.extend([
+                                models.Ad.attributes['rooms'].astext == v,
+                                models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike(f"%{v}%"),
+                                models.Ad.attributes['dynamic_data']['rooms'].astext.ilike(f"%{v}%")
+                            ])
                     query = query.filter(or_(*conditions))
                 elif prefix == "bathrooms":
                     vals = val.split(",")
-                    val_ints = [int(v) for v in vals if v.isdigit()]
-                    conditions = [cast(models.AdSearchIndex.search_text, String).ilike(f"%bathrooms:{v}%") for v in vals]
-                    if val_ints:
-                        conditions.append(models.AdSearchIndex.bathrooms.in_(val_ints))
-                    if '+6' in vals or '6+' in vals:
-                        conditions.append(models.AdSearchIndex.bathrooms >= 6)
+                    conditions = []
+                    for v in vals:
+                        if v == '+6' or v == '6+':
+                            conditions.extend([
+                                models.Ad.attributes['bathrooms'].astext == '+6',
+                                models.Ad.attributes['dynamic_data']['bathrooms'].astext.ilike('%6%'),
+                                models.Ad.attributes['dynamic_data']['bathrooms'].astext.ilike('%7%')
+                            ])
+                        else:
+                            conditions.extend([
+                                models.Ad.attributes['bathrooms'].astext == v,
+                                models.Ad.attributes['dynamic_data']['bathrooms'].astext.ilike(f"%{v}%")
+                            ])
                     query = query.filter(or_(*conditions))
                 elif prefix == "floor":
                     vals = val.split(",")
-                    val_ints = [int(v) for v in vals if v.isdigit()]
-                    conditions = [cast(models.AdSearchIndex.search_text, String).ilike(f"%floor:{v}%") for v in vals]
-                    if val_ints:
-                        conditions.append(models.AdSearchIndex.floor_number.in_(val_ints))
+                    conditions = []
+                    for v in vals:
+                        conditions.extend([
+                            models.Ad.attributes['floor'].astext == v,
+                            models.Ad.attributes['dynamic_data']['floor'].astext == v
+                        ])
                     query = query.filter(or_(*conditions))
                 elif prefix == "furnished":
-                    is_furn = val in ['مفروشة', 'مفروش', 'مفروش جزئياً', 'yes']
-                    query = query.filter(cast(models.AdSearchIndex.search_text, String).ilike(f"%furnished:{val}%") | (models.AdSearchIndex.furnished == is_furn))
+                    vals = val.split(",")
+                    conditions = []
+                    for v in vals:
+                        conditions.extend([
+                            models.Ad.attributes['furnished'].astext == v,
+                            models.Ad.attributes['dynamic_data']['furnishing'].astext == v,
+                            models.Ad.attributes['dynamic_data']['furnished'].astext == v
+                        ])
+                    query = query.filter(or_(*conditions))
                 elif prefix == "min_area" and val.isdigit():
                     v = int(val)
                     area_conds = [models.AdSearchIndex.build_area >= float(v)]
