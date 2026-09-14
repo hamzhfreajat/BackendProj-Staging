@@ -737,6 +737,11 @@ def perform_bulk_action(
     
     for ad in ads:
         if req.action == "delete":
+            db.query(models.AdRealEstateDetail).filter(models.AdRealEstateDetail.ad_id == ad.id).delete()
+            db.query(models.AdSearchIndex).filter(models.AdSearchIndex.ad_id == ad.id).delete()
+            db.query(models.SavedAd).filter(models.SavedAd.ad_id == ad.id).delete()
+            db.query(models.AdReport).filter(models.AdReport.ad_id == ad.id).delete()
+            db.query(models.AdClickTracking).filter(models.AdClickTracking.ad_id == ad.id).delete()
             db.delete(ad)
         elif req.action == "pause":
             ad.is_paused = True
@@ -1149,7 +1154,6 @@ def read_ads(
     only_others: bool = False,
     location_search: str = None,
     phone: str = None,
-    duplicate_status: str = None,
     current_user: models.User = Depends(get_optional_user),
     db: Session = Depends(get_db),
     background_tasks: BackgroundTasks = None
@@ -1172,8 +1176,11 @@ def read_ads(
         query = query.filter(or_(
             models.User.phone.ilike(f"%{phone}%"), 
             models.User.mobile_number.ilike(f"%{phone}%"),
-            cast(models.Ad.attributes, String).ilike(f"%{phone}%")
+            cast(models.Ad.attributes, String).ilike(f"%{phone}%"),
+            models.Ad.description.ilike(f"%{phone}%"),
+            models.Ad.raw_description.ilike(f"%{phone}%")
         ))
+
     
     if user_id is not None:
         query = query.filter(models.Ad.user_id == user_id)
@@ -1196,29 +1203,24 @@ def read_ads(
             pass
     log_query = original_search if original_search else search
     if search:
-        search_parts = search.replace(",", " ").split()
-        if search_parts and all(part.isdigit() for part in search_parts):
-            ad_ids = [int(p) for p in search_parts]
-            query = query.filter(models.Ad.id.in_(ad_ids))
-        else:
-            ranked_ad_ids = SearchService.search_properties(db, search, limit=1000)
-            
-            # Log the search query and results count in background
-            if background_tasks and log_query and log_query.strip():
-                user_id_val = current_user.id if hasattr(current_user, 'id') else None
-                background_tasks.add_task(log_search_query_task, log_query, len(ranked_ad_ids), user_id_val, category_id, tags)
+        ranked_ad_ids = SearchService.search_properties(db, search, limit=1000)
+        
+        # Log the search query and results count in background
+        if background_tasks and log_query and log_query.strip():
+            user_id_val = current_user.id if hasattr(current_user, 'id') else None
+            background_tasks.add_task(log_search_query_task, log_query, len(ranked_ad_ids), user_id_val, category_id, tags)
 
-            if not ranked_ad_ids:
-                return []
-                
-            query = query.filter(models.Ad.id.in_(ranked_ad_ids))
+        if not ranked_ad_ids:
+            return []
             
-            # Preserve relevance ranking from SearchService
-            order_cases = {ad_id: index for index, ad_id in enumerate(ranked_ad_ids)}
-            whens = [(models.Ad.id == ad_id, index) for ad_id, index in order_cases.items()]
-            
-            if whens:
-                query = query.order_by(effective_bid.desc(), case(*whens))
+        query = query.filter(models.Ad.id.in_(ranked_ad_ids))
+        
+        # Preserve relevance ranking from SearchService
+        order_cases = {ad_id: index for index, ad_id in enumerate(ranked_ad_ids)}
+        whens = [(models.Ad.id == ad_id, index) for ad_id, index in order_cases.items()]
+        
+        if whens:
+            query = query.order_by(effective_bid.desc(), case(*whens))
     elif background_tasks and log_query and log_query.strip():
         user_id_val = current_user.id if hasattr(current_user, 'id') else None
         total_results = query.count()
@@ -1308,9 +1310,6 @@ def read_ads(
         
     if source_type:
         query = query.filter(models.Ad.source_type == source_type)
-
-    if duplicate_status:
-        query = query.filter(models.Ad.duplicate_status == duplicate_status)
         
     if tags:
         from sqlalchemy import Integer
@@ -1566,6 +1565,10 @@ def read_ads(
             
     return ads
 
+
+
+
+
 @app.get("/api/ads/aggregate", response_model=List[dict])
 def aggregate_ads(
     group_by: str = Query("location", description="Field to group by: location, category_id"),
@@ -1598,17 +1601,29 @@ def aggregate_ads(
         ))
     
     if category_id:
-        category = db.query(models.Category).filter(models.Category.id == category_id).first()
-        if category:
-            subcats = db.query(models.Category).filter(models.Category.parent_id == category_id).all()
-            cat_ids = [category_id] + [c.id for c in subcats]
-            query = query.filter(models.AdSearchIndex.category_id.in_(cat_ids))
+        # Get all descendant category IDs efficiently in memory
+        all_cats = db.query(models.Category.id, models.Category.parent_id).all()
+        cat_graph = {}
+        for c_id, p_id in all_cats:
+            if p_id not in cat_graph:
+                cat_graph[p_id] = []
+            cat_graph[p_id].append(c_id)
+            
+        def get_descendants_fast(cat_id):
+            descendants = [cat_id]
+            if cat_id in cat_graph:
+                for child_id in cat_graph[cat_id]:
+                    descendants.extend(get_descendants_fast(child_id))
+            return descendants
+            
+        all_cat_ids = get_descendants_fast(category_id)
+        query = query.filter(models.AdSearchIndex.category_id.in_(all_cat_ids))
         
     if section:
         if section == 'rent':
-            query = query.filter(models.AdSearchIndex.category_id.in_([3, 4]))
+            query = query.filter(models.AdSearchIndex.category_id.in_([3, 4])) # Real estate rent
         elif section == 'buy':
-            query = query.filter(models.AdSearchIndex.category_id.in_([1, 2]))
+            query = query.filter(models.AdSearchIndex.category_id.in_([1, 2])) # Real estate buy
             
     if location and len(location) > 0:
         loc_filters = []
@@ -1637,11 +1652,30 @@ def aggregate_ads(
             if ":" in tag:
                 prefix, val = tag.split(":", 1)
                 if prefix == "bedrooms":
-                    query = query.filter(cast(models.AdSearchIndex.search_text, String).ilike(f"%bedrooms:{val}%") | cast(models.AdSearchIndex.search_text, String).ilike(f"%rooms:{val}%") | (models.AdSearchIndex.bedrooms == int(val) if val.isdigit() else False))
+                    vals = val.split(",")
+                    val_ints = [int(v) for v in vals if v.isdigit()]
+                    conditions = [cast(models.AdSearchIndex.search_text, String).ilike(f"%bedrooms:{v}%") | cast(models.AdSearchIndex.search_text, String).ilike(f"%rooms:{v}%") for v in vals]
+                    if val_ints:
+                        conditions.append(models.AdSearchIndex.bedrooms.in_(val_ints))
+                    if '+6' in vals or '6+' in vals:
+                        conditions.append(models.AdSearchIndex.bedrooms >= 6)
+                    query = query.filter(or_(*conditions))
                 elif prefix == "bathrooms":
-                    query = query.filter(cast(models.AdSearchIndex.search_text, String).ilike(f"%bathrooms:{val}%") | (models.AdSearchIndex.bathrooms == int(val) if val.isdigit() else False))
+                    vals = val.split(",")
+                    val_ints = [int(v) for v in vals if v.isdigit()]
+                    conditions = [cast(models.AdSearchIndex.search_text, String).ilike(f"%bathrooms:{v}%") for v in vals]
+                    if val_ints:
+                        conditions.append(models.AdSearchIndex.bathrooms.in_(val_ints))
+                    if '+6' in vals or '6+' in vals:
+                        conditions.append(models.AdSearchIndex.bathrooms >= 6)
+                    query = query.filter(or_(*conditions))
                 elif prefix == "floor":
-                    query = query.filter(cast(models.AdSearchIndex.search_text, String).ilike(f"%floor:{val}%") | (models.AdSearchIndex.floor_number == int(val) if val.isdigit() else False))
+                    vals = val.split(",")
+                    val_ints = [int(v) for v in vals if v.isdigit()]
+                    conditions = [cast(models.AdSearchIndex.search_text, String).ilike(f"%floor:{v}%") for v in vals]
+                    if val_ints:
+                        conditions.append(models.AdSearchIndex.floor_number.in_(val_ints))
+                    query = query.filter(or_(*conditions))
                 elif prefix == "furnished":
                     is_furn = val in ['مفروشة', 'مفروش', 'مفروش جزئياً', 'yes']
                     query = query.filter(cast(models.AdSearchIndex.search_text, String).ilike(f"%furnished:{val}%") | (models.AdSearchIndex.furnished == is_furn))
@@ -1681,7 +1715,6 @@ def get_ads_count(
     only_others: bool = False,
     location_search: str = None,
     phone: str = None,
-    duplicate_status: str = None,
     db: Session = Depends(get_db)
 ):
     query = db.query(models.Ad)
@@ -1715,17 +1748,12 @@ def get_ads_count(
         except:
             pass
     if search:
-        search_parts = search.replace(",", " ").split()
-        if search_parts and all(part.isdigit() for part in search_parts):
-            ad_ids = [int(p) for p in search_parts]
-            query = query.filter(models.Ad.id.in_(ad_ids))
-        else:
-            ranked_ad_ids = SearchService.search_properties(db, search, limit=1000)
+        ranked_ad_ids = SearchService.search_properties(db, search, limit=1000)
+        
+        if not ranked_ad_ids:
+            return {"total_count": 0}
             
-            if not ranked_ad_ids:
-                return {"total_count": 0}
-                
-            query = query.filter(models.Ad.id.in_(ranked_ad_ids))
+        query = query.filter(models.Ad.id.in_(ranked_ad_ids))
         
     if location and not ignore_location:
         parent_loc = None
@@ -1804,9 +1832,6 @@ def get_ads_count(
         
     if source_type:
         query = query.filter(models.Ad.source_type == source_type)
-
-    if duplicate_status:
-        query = query.filter(models.Ad.duplicate_status == duplicate_status)
         
     if tags:
         from sqlalchemy import Integer
@@ -2281,7 +2306,6 @@ def create_ad(
     
     # Sync to search index
     SearchService.sync_ad_to_search_index(db, db_ad)
-    background_tasks.add_task(background_calculate_fair_price, db_ad.id)
 
     # Trigger saved searches alerts
     from observer import trigger_saved_filter_notifications
@@ -2438,7 +2462,6 @@ def update_ad(
     
     # Sync to search index
     SearchService.sync_ad_to_search_index(db, db_ad)
-    background_tasks.add_task(background_calculate_fair_price, db_ad.id)
     
     # Notify: Ad submitted confirmation to the owner if transitioned from unpublished to published
     if was_unpublished and is_now_published:
@@ -2585,6 +2608,14 @@ def delete_ad(
     if db_ad.user_id != current_user.id and current_user.user_type != "admin":
         raise HTTPException(status_code=403, detail="Not authorized to delete this ad")
     
+    # Explicitly delete child records to prevent foreign key constraint IntegrityError
+    # (in case the database is missing ON DELETE CASCADE on these tables)
+    db.query(models.AdRealEstateDetail).filter(models.AdRealEstateDetail.ad_id == db_ad.id).delete()
+    db.query(models.AdSearchIndex).filter(models.AdSearchIndex.ad_id == db_ad.id).delete()
+    db.query(models.SavedAd).filter(models.SavedAd.ad_id == db_ad.id).delete()
+    db.query(models.AdReport).filter(models.AdReport.ad_id == db_ad.id).delete()
+    db.query(models.AdClickTracking).filter(models.AdClickTracking.ad_id == db_ad.id).delete()
+    
     db.delete(db_ad)
     db.commit()
     return {"message": "Ad deleted successfully"}
@@ -2717,7 +2748,6 @@ def republish_ad(ad_id: int, current_user: models.User = Depends(auth.get_curren
     
     # Sync back to search index
     SearchService.sync_ad_to_search_index(db, db_ad)
-    background_tasks.add_task(background_calculate_fair_price, db_ad.id)
     
     return db_ad
 
@@ -3240,7 +3270,10 @@ async def republish_notifier_worker():
             
             # fetchall() executes the statement and retrieves the rows updated by THIS specific worker
             result = db.execute(stmt)
-            updated_ads = result.fetchall() if result.returns_rows else []
+            try:
+                updated_ads = result.fetchall()
+            except Exception:
+                updated_ads = []
             db.commit()
             
             if updated_ads:
@@ -3637,15 +3670,3 @@ def update_version_config(req: AppConfigUpdate, current_admin: models.User = Dep
 # Trigger reload
 
 # Trigger reload 2
-
-def background_calculate_fair_price(ad_id: int):
-    from database import SessionLocal
-    db = SessionLocal()
-    try:
-        from market_analysis_service import MarketAnalysisService
-        MarketAnalysisService.calculate_and_save(ad_id, db)
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"Error calculating fair price for ad {ad_id}: {e}")
-    finally:
-        db.close()
