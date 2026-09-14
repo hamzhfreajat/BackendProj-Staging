@@ -1642,7 +1642,12 @@ def aggregate_ads(
     if is_published is not None:
         query = query.filter(models.Ad.is_published == is_published)
     else:
-        query = query.filter(models.Ad.is_published == True)
+        query = query.filter(models.Ad.is_published == True, models.Ad.is_sold == False)
+        
+    if not search:
+        query = query.filter(models.Ad.image_url.isnot(None))
+        query = query.filter(models.Ad.image_url != '[]')
+        query = query.filter(models.Ad.image_url != '')
         
     if source_type:
         query = query.filter(models.Ad.source_type == source_type)
