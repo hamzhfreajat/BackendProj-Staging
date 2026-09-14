@@ -1586,7 +1586,7 @@ def aggregate_ads(
     location_search: str = None,
     db: Session = Depends(get_db)
 ):
-    from sqlalchemy import func, or_, cast, String
+    from sqlalchemy import func, or_, cast, String, Integer
     # Use AdSearchIndex for maximum performance
     query = db.query(models.Ad).join(models.AdSearchIndex, models.Ad.id == models.AdSearchIndex.ad_id)
     
@@ -1685,9 +1685,33 @@ def aggregate_ads(
                     is_furn = val in ['مفروشة', 'مفروش', 'مفروش جزئياً', 'yes']
                     query = query.filter(cast(models.AdSearchIndex.search_text, String).ilike(f"%furnished:{val}%") | (models.AdSearchIndex.furnished == is_furn))
                 elif prefix == "min_area" and val.isdigit():
-                    query = query.filter(models.AdSearchIndex.build_area >= float(val))
+                    v = int(val)
+                    area_conds = [models.AdSearchIndex.build_area >= float(v)]
+                    try:
+                        numeric_area = func.nullif(func.regexp_replace(models.Ad.attributes['dynamic_data']['area'].astext, '[^0-9]', '', 'g'), '')
+                        area_conds.append(numeric_area.cast(Integer) >= v)
+                        numeric_barea = func.nullif(func.regexp_replace(models.Ad.attributes['dynamic_data']['building_area'].astext, '[^0-9]', '', 'g'), '')
+                        area_conds.append(numeric_barea.cast(Integer) >= v)
+                        numeric_larea = func.nullif(func.regexp_replace(models.Ad.attributes['dynamic_data']['land_area'].astext, '[^0-9]', '', 'g'), '')
+                        area_conds.append(numeric_larea.cast(Integer) >= v)
+                        numeric_area_top = func.nullif(func.regexp_replace(models.Ad.attributes['area'].astext, '[^0-9]', '', 'g'), '')
+                        area_conds.append(numeric_area_top.cast(Integer) >= v)
+                    except: pass
+                    query = query.filter(or_(*area_conds))
                 elif prefix == "max_area" and val.isdigit():
-                    query = query.filter(models.AdSearchIndex.build_area <= float(val))
+                    v = int(val)
+                    area_conds = [models.AdSearchIndex.build_area <= float(v)]
+                    try:
+                        numeric_area = func.nullif(func.regexp_replace(models.Ad.attributes['dynamic_data']['area'].astext, '[^0-9]', '', 'g'), '')
+                        area_conds.append(numeric_area.cast(Integer) <= v)
+                        numeric_barea = func.nullif(func.regexp_replace(models.Ad.attributes['dynamic_data']['building_area'].astext, '[^0-9]', '', 'g'), '')
+                        area_conds.append(numeric_barea.cast(Integer) <= v)
+                        numeric_larea = func.nullif(func.regexp_replace(models.Ad.attributes['dynamic_data']['land_area'].astext, '[^0-9]', '', 'g'), '')
+                        area_conds.append(numeric_larea.cast(Integer) <= v)
+                        numeric_area_top = func.nullif(func.regexp_replace(models.Ad.attributes['area'].astext, '[^0-9]', '', 'g'), '')
+                        area_conds.append(numeric_area_top.cast(Integer) <= v)
+                    except: pass
+                    query = query.filter(or_(*area_conds))
                 elif prefix == "period":
                     query = query.filter(cast(models.AdSearchIndex.search_text, String).ilike(f"%period:{val}%"))
                 else:
