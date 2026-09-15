@@ -1764,8 +1764,22 @@ def aggregate_ads(
             query = query.filter(cast(models.AdSearchIndex.attributes_jsonb, String).ilike(f"%{t}%"))
             
     if group_by == 'location':
-        results = query.with_entities(models.Ad.location, func.count(models.Ad.id)).group_by(models.Ad.location).all()
-        return [{"group": row[0] or "Unknown", "count": row[1]} for row in results]
+        from sqlalchemy import case
+        results = query.with_entities(
+            models.Ad.location,
+            func.count(models.Ad.id),
+            func.sum(case((models.Ad.market_price_status == 'BELOW_MARKET', 1), else_=0)),
+            func.avg(models.AdSearchIndex.price),
+            func.avg(models.AdSearchIndex.build_area)
+        ).group_by(models.Ad.location).all()
+        
+        return [{
+            "group": row[0] or "Unknown",
+            "count": row[1] or 0,
+            "below_market_count": row[2] or 0,
+            "avg_price": float(row[3]) if row[3] is not None else 0.0,
+            "avg_area": float(row[4]) if row[4] is not None else 0.0,
+        } for row in results]
     elif group_by == 'category_id':
         results = query.with_entities(models.AdSearchIndex.category_id, func.count(models.Ad.id)).group_by(models.AdSearchIndex.category_id).all()
         return [{"group": str(row[0]), "count": row[1]} for row in results]
