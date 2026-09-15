@@ -457,6 +457,11 @@ class Ad(AdBase):
     highest_duplicate_score: Optional[int] = None
     market_price_status: Optional[str] = None
     market_average_price: Optional[float] = None
+    deviation_pct: Optional[float] = None
+    comparables_count: Optional[int] = None
+    confidence_level: Optional[str] = None
+    matching_level_used: Optional[int] = None
+    calculated_at: Optional[datetime] = None
     linked_tags: Optional[List[Tag]] = []
     
     @field_validator('location', mode='before')
