@@ -1653,74 +1653,80 @@ def aggregate_ads(
         query = query.filter(models.Ad.source_type == source_type)
         
     if tags and len(tags) > 0:
-        for tag in tags:
-            if ":" in tag:
-                prefix, val = tag.split(":", 1)
-                if prefix == "bedrooms":
-                    vals = val.split(",")
-                    conditions = []
-                    for v in vals:
-                        if v == '+6' or v == '6+':
-                            conditions.extend([
-                                models.Ad.attributes['rooms'].astext == '+6',
-                                models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%6%'),
-                                models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%7%'),
-                                models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%6%'),
-                                models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%7%')
-                            ])
-                        elif v == 'ستوديو':
-                            conditions.extend([
-                                models.Ad.attributes['rooms'].astext == '0',
-                                models.Ad.attributes['rooms'].astext == 'ستوديو',
-                                models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%ستوديو%'),
-                                models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%0%'),
-                                models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%ستوديو%'),
-                                models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%0%')
-                            ])
-                        else:
-                            conditions.extend([
-                                models.Ad.attributes['rooms'].astext == v,
-                                models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike(f"%{v}%"),
-                                models.Ad.attributes['dynamic_data']['rooms'].astext.ilike(f"%{v}%")
-                            ])
-                    query = query.filter(or_(*conditions))
-                elif prefix == "bathrooms":
-                    vals = val.split(",")
-                    conditions = []
-                    for v in vals:
-                        if v == '+6' or v == '6+':
-                            conditions.extend([
-                                models.Ad.attributes['bathrooms'].astext == '+6',
-                                models.Ad.attributes['dynamic_data']['bathrooms'].astext.ilike('%6%'),
-                                models.Ad.attributes['dynamic_data']['bathrooms'].astext.ilike('%7%')
-                            ])
-                        else:
-                            conditions.extend([
-                                models.Ad.attributes['bathrooms'].astext == v,
-                                models.Ad.attributes['dynamic_data']['bathrooms'].astext.ilike(f"%{v}%")
-                            ])
-                    query = query.filter(or_(*conditions))
-                elif prefix == "floor":
-                    vals = val.split(",")
-                    conditions = []
-                    for v in vals:
+        from collections import defaultdict
+        grouped_tags = defaultdict(list)
+        generic_tags = []
+        for t in tags:
+            if ":" in t:
+                prefix, val = t.split(":", 1)
+                vals = val.split(",")
+                grouped_tags[prefix].extend(vals)
+            else:
+                generic_tags.append(t)
+                
+        for prefix, vals in grouped_tags.items():
+            if prefix == "bedrooms":
+                conditions = []
+                for v in vals:
+                    if v == '+6' or v == '6+':
                         conditions.extend([
-                            models.Ad.attributes['floor'].astext == v,
-                            models.Ad.attributes['dynamic_data']['floor'].astext == v
+                            models.Ad.attributes['rooms'].astext == '+6',
+                            models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%6%'),
+                            models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%7%'),
+                            models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%6%'),
+                            models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%7%')
                         ])
-                    query = query.filter(or_(*conditions))
-                elif prefix == "furnished":
-                    vals = val.split(",")
-                    conditions = []
-                    for v in vals:
+                    elif v == 'ستوديو':
                         conditions.extend([
-                            models.Ad.attributes['furnished'].astext == v,
-                            models.Ad.attributes['dynamic_data']['furnishing'].astext == v,
-                            models.Ad.attributes['dynamic_data']['furnished'].astext == v
+                            models.Ad.attributes['rooms'].astext == '0',
+                            models.Ad.attributes['rooms'].astext == 'ستوديو',
+                            models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%ستوديو%'),
+                            models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%0%'),
+                            models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%ستوديو%'),
+                            models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%0%')
                         ])
-                    query = query.filter(or_(*conditions))
-                elif prefix == "min_area" and val.isdigit():
-                    v = int(val)
+                    else:
+                        conditions.extend([
+                            models.Ad.attributes['rooms'].astext == v,
+                            models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike(f"%{v}%"),
+                            models.Ad.attributes['dynamic_data']['rooms'].astext.ilike(f"%{v}%")
+                        ])
+                query = query.filter(or_(*conditions))
+            elif prefix == "bathrooms":
+                conditions = []
+                for v in vals:
+                    if v == '+6' or v == '6+':
+                        conditions.extend([
+                            models.Ad.attributes['bathrooms'].astext == '+6',
+                            models.Ad.attributes['dynamic_data']['bathrooms'].astext.ilike('%6%'),
+                            models.Ad.attributes['dynamic_data']['bathrooms'].astext.ilike('%7%')
+                        ])
+                    else:
+                        conditions.extend([
+                            models.Ad.attributes['bathrooms'].astext == v,
+                            models.Ad.attributes['dynamic_data']['bathrooms'].astext.ilike(f"%{v}%")
+                        ])
+                query = query.filter(or_(*conditions))
+            elif prefix == "floor":
+                conditions = []
+                for v in vals:
+                    conditions.extend([
+                        models.Ad.attributes['floor'].astext == v,
+                        models.Ad.attributes['dynamic_data']['floor'].astext == v
+                    ])
+                query = query.filter(or_(*conditions))
+            elif prefix == "furnished":
+                conditions = []
+                for v in vals:
+                    conditions.extend([
+                        models.Ad.attributes['furnished'].astext == v,
+                        models.Ad.attributes['dynamic_data']['furnishing'].astext == v,
+                        models.Ad.attributes['dynamic_data']['furnished'].astext == v
+                    ])
+                query = query.filter(or_(*conditions))
+            elif prefix == "min_area":
+                v = int(vals[0]) if vals[0].isdigit() else 0
+                if v > 0:
                     area_conds = [models.AdSearchIndex.build_area >= float(v)]
                     try:
                         numeric_area = func.nullif(func.regexp_replace(models.Ad.attributes['dynamic_data']['area'].astext, '[^0-9]', '', 'g'), '')
@@ -1733,8 +1739,9 @@ def aggregate_ads(
                         area_conds.append(numeric_area_top.cast(Integer) >= v)
                     except: pass
                     query = query.filter(or_(*area_conds))
-                elif prefix == "max_area" and val.isdigit():
-                    v = int(val)
+            elif prefix == "max_area":
+                v = int(vals[0]) if vals[0].isdigit() else 0
+                if v > 0:
                     area_conds = [models.AdSearchIndex.build_area <= float(v)]
                     try:
                         numeric_area = func.nullif(func.regexp_replace(models.Ad.attributes['dynamic_data']['area'].astext, '[^0-9]', '', 'g'), '')
@@ -1747,12 +1754,14 @@ def aggregate_ads(
                         area_conds.append(numeric_area_top.cast(Integer) <= v)
                     except: pass
                     query = query.filter(or_(*area_conds))
-                elif prefix == "period":
-                    query = query.filter(cast(models.AdSearchIndex.search_text, String).ilike(f"%period:{val}%"))
-                else:
-                    query = query.filter(cast(models.AdSearchIndex.attributes_jsonb, String).ilike(f"%{tag}%"))
+            elif prefix == "period":
+                query = query.filter(cast(models.AdSearchIndex.search_text, String).ilike(f"%period:{vals[0]}%"))
             else:
-                query = query.filter(cast(models.AdSearchIndex.attributes_jsonb, String).ilike(f"%{tag}%"))
+                for v in vals:
+                    query = query.filter(cast(models.AdSearchIndex.attributes_jsonb, String).ilike(f"%{prefix}:{v}%"))
+                    
+        for t in generic_tags:
+            query = query.filter(cast(models.AdSearchIndex.attributes_jsonb, String).ilike(f"%{t}%"))
             
     if group_by == 'location':
         results = query.with_entities(models.Ad.location, func.count(models.Ad.id)).group_by(models.Ad.location).all()
