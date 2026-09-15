@@ -1,12 +1,11 @@
-import logging
-logging.basicConfig(level=logging.INFO)
 from market_analysis_service import MarketAnalysisService
 from database import SessionLocal
 
 def main():
-    print('Starting full market analysis batch...')
+    print('Starting market analysis batch for NATIVE (Organic) ads only...')
     db = SessionLocal()
     try:
+        # Full scan (incremental=False), actual save (dry_run=False)
         MarketAnalysisService.run_batch(db, incremental=False, dry_run=False)
         print('Finished!')
     finally:

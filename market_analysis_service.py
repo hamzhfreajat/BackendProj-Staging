@@ -68,7 +68,14 @@ class MarketAnalysisService:
         start_time = datetime.utcnow()
         logger.info(f"Starting market analysis batch job (incremental={incremental}, dry_run={dry_run}, ad_id={specific_ad_id})")
         
-        query = db.query(Ad).join(AdSearchIndex, Ad.id == AdSearchIndex.ad_id).filter(Ad.is_active == True, Ad.price.isnot(None))
+        query = db.query(Ad).join(AdSearchIndex, Ad.id == AdSearchIndex.ad_id).filter(
+            Ad.is_published == True,
+            Ad.is_paused == False,
+            Ad.is_sold == False,
+            Ad.is_rejected == False,
+            Ad.price.isnot(None),
+            Ad.source_type == SourceType.ORGANIC_USER
+        )
         
         if specific_ad_id:
             query = query.filter(Ad.id == specific_ad_id)
@@ -106,7 +113,10 @@ class MarketAnalysisService:
                 AdSearchIndex, AdSearchIndex.ad_id == Ad.id
             ).filter(
                 Ad.id != ad.id,
-                Ad.is_active == True,
+                Ad.is_published == True,
+                Ad.is_paused == False,
+                Ad.is_sold == False,
+                Ad.is_rejected == False,
                 Ad.category_id == ad.category_id,
                 Ad.created_at >= lookback_date,
                 Ad.price >= sanity_min,
