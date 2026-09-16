@@ -277,6 +277,8 @@ app.include_router(duplicate_router)
 app.include_router(wallet_router.router)
 
 app.include_router(ai_router)
+from smart_search_router import smart_search_router
+app.include_router(smart_search_router)
 app.include_router(media_router)
 app.include_router(og_router)
 app.include_router(auth.router)
