@@ -1,7 +1,8 @@
 import os
 import json
 import logging
-import requests
+import urllib.request
+import urllib.error
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
@@ -101,11 +102,11 @@ def get_deepseek_intent_and_filters(text: str) -> dict:
     }
 
     try:
-        response = requests.post(url, headers=headers, json=data, timeout=20)
-        response.raise_for_status()
-        result = response.json()
-        content = result["choices"][0]["message"]["content"]
-        return json.loads(content)
+        req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=20) as response:
+            result = json.loads(response.read().decode("utf-8"))
+            content = result["choices"][0]["message"]["content"]
+            return json.loads(content)
     except Exception as e:
         logger.error(f"Error calling DeepSeek API: {str(e)}")
         raise HTTPException(status_code=500, detail="Error communicating with AI service.")
@@ -139,10 +140,10 @@ def generate_fallback_suggestion(original_filters: dict, alternative_count: int,
     }
 
     try:
-        response = requests.post(url, headers=headers, json=data, timeout=10)
-        response.raise_for_status()
-        result = response.json()
-        return result["choices"][0]["message"]["content"].strip()
+        req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=10) as response:
+            result = json.loads(response.read().decode("utf-8"))
+            return result["choices"][0]["message"]["content"].strip()
     except Exception as e:
         logger.error(f"Error calling DeepSeek for suggestion: {str(e)}")
         return "لا توجد نتائج مطابقة، جرب تغيير بعض الفلاتر للحصول على نتائج."
