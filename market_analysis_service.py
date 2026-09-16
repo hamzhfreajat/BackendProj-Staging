@@ -79,8 +79,7 @@ class MarketAnalysisService:
             Ad.is_paused == False,
             Ad.is_sold == False,
             Ad.is_rejected == False,
-            Ad.price.isnot(None),
-            Ad.source_type == SourceType.ORGANIC_USER
+            Ad.price.isnot(None)
         )
         
         if specific_ad_id:
