@@ -47,7 +47,12 @@ def get_deepseek_intent_and_filters(text: str) -> dict:
    - "help": يطلب مساعدة (مثل: "كيف أستخدم التطبيق")
 
 2. إذا كانت النية "search"، استخرج الفلاتر التالية من كلامه:
-   - category: اسم الفئة بالعربي (شقق للبيع، شقق للإيجار، أراضي، فلل، بيوت مستقلة، ستوديوهات، محلات، مكاتب)
+   - category: اسم الفئة الفرعية الدقيقة (المستوى الثالث دائماً). القيم المسموحة فقط:
+     للبيع: "شقق للبيع" | "ستوديوهات للبيع" | "فلل ومنازل" | "بيوت مستقلة للبيع" | "تاون هاوس للبيع" | "دوبلكس / بنتهاوس" | "ملحق / شف" | "محلات ومراكز للبيع" | "مكاتب للبيع" | "عمارة كاملة للبيع"
+     للإيجار: "شقق للإيجار" | "فلل للإيجار" | "ستوديو للإيجار" | "غرفة للإيجار" | "محلات للإيجار" | "مكاتب للإيجار" | "مستودعات ومخازن" | "صالات ومراكز" | "عمارة كاملة للإيجار"
+     أراضي: "أراضي سكنية" | "أراضي تجارية" | "أراضي زراعية"
+     مزارع وشاليهات: "مزرعة" | "شاليه" | "مزرعة وشاليه"
+     ملاحظة مهمة جداً: لا تستخدم أبداً فئة عامة مثل "عقارات للبيع" أو "عقارات للإيجار" أو "سكني" أو "أراضي". دائماً استخدم الفئة الأكثر تحديداً. مثلاً إذا قال المستخدم "شقة" فالفئة هي "شقق للبيع" أو "شقق للإيجار" حسب السياق. إذا قال "أرض" بدون تحديد استخدم "أراضي سكنية".
    - city: اسم المدينة (عمان، إربد، الزرقاء، العقبة، مادبا، جرش، عجلون، الكرك، الطفيلة، معان، المفرق، البلقاء، السلط)
    - region: اسم المنطقة/الحي (خلدا، عبدون، الرابية، دابوق، الشميساني، تلاع العلي، الجبيهة، صويلح، ماركا، الهاشمي، أبو نصير، طبربور، الجاردنز، الصويفية، أم أذينة، الدوار السابع، اليادودة، شفا بدران، الأردن، ضاحية الرشيد، خريبة السوق، الزهور)
    - min_price: الحد الأدنى للسعر (رقم)
@@ -146,17 +151,44 @@ def map_category(category_name: str, intent_filters: dict) -> Optional[int]:
     if not category_name:
         return None
         
+    # LEAF-LEVEL ONLY mapping - never use parent categories (2, 3, 10313)
     mapping = {
+        # للبيع
         "شقق للبيع": 10301,
         "ستوديوهات للبيع": 10302,
         "فلل ومنازل": 10101,
         "بيوت مستقلة للبيع": 10102,
-        "أراضي": 10313,
-        "سكني": 10310,
-        "تجاري": 10311,
+        "تاون هاوس للبيع": 10104,
+        "دوبلكس / بنتهاوس": 10103,
+        "دوبلكس": 10103,
+        "بنتهاوس": 10103,
+        "ملحق / شف": 10105,
+        "محلات ومراكز للبيع": 10303,
+        "مكاتب للبيع": 10876,
+        "عمارة كاملة للبيع": 10878,
+        # للإيجار
         "شقق للإيجار": 301,
         "فلل للإيجار": 302,
+        "ستوديو للإيجار": 10015,
+        "غرفة للإيجار": 10999,
+        "محلات للإيجار": 10853,
+        "مكاتب للإيجار": 10874,
+        "مستودعات ومخازن": 10875,
+        "صالات ومراكز": 10872,
+        "عمارة كاملة للإيجار": 10878,
+        # أراضي (leaf level)
+        "أراضي سكنية": 19000,
+        "أراضي تجارية": 19010,
+        "أراضي زراعية": 19040,
+        # مزارع وشاليهات
+        "مزرعة": 18001,
+        "شاليه": 18002,
+        "مزرعة وشاليه": 18003,
     }
+    
+    # Exact match first
+    if category_name in mapping:
+        return mapping[category_name]
     
     # Fuzzy match
     cat_str = category_name.lower()
@@ -164,21 +196,52 @@ def map_category(category_name: str, intent_filters: dict) -> Optional[int]:
         if key in cat_str or cat_str in key:
             return val
             
+    # Keyword-based matching - ALWAYS resolve to leaf subcategory
     if "إيجار" in cat_str or "ايجار" in cat_str:
-        if "شقق" in cat_str or "شقة" in cat_str:
-            return 301
-        elif "فلل" in cat_str or "فيلا" in cat_str:
+        if "ستوديو" in cat_str:
+            return 10015
+        if "فلل" in cat_str or "فيلا" in cat_str:
             return 302
-        return 3 # Parent category for rent
+        if "محل" in cat_str:
+            return 10853
+        if "مكتب" in cat_str:
+            return 10874
+        if "غرف" in cat_str:
+            return 10999
+        if "مستودع" in cat_str or "مخزن" in cat_str:
+            return 10875
+        # Default rental = شقق للإيجار (leaf)
+        return 301
         
     if "بيع" in cat_str:
-        if "شقق" in cat_str or "شقة" in cat_str:
-            return 10301
-        elif "ستوديو" in cat_str:
+        if "ستوديو" in cat_str:
             return 10302
-        elif "أرض" in cat_str or "اراضي" in cat_str:
-            return 10313
-        return 2 # Parent category for sale
+        if "أرض" in cat_str or "اراضي" in cat_str or "ارض" in cat_str:
+            return 19000  # أراضي سكنية as default
+        if "فلل" in cat_str or "فيلا" in cat_str:
+            return 10101
+        if "بيت" in cat_str or "بيوت" in cat_str:
+            return 10102
+        if "محل" in cat_str:
+            return 10303
+        if "مكتب" in cat_str:
+            return 10876
+        if "عمار" in cat_str:
+            return 10878
+        # Default sale = شقق للبيع (leaf)
+        return 10301
+
+    # General keywords
+    if "شقة" in cat_str or "شقق" in cat_str:
+        return 10301  # شقق للبيع as default
+    if "فيلا" in cat_str or "فلل" in cat_str:
+        return 10101
+    if "أرض" in cat_str or "ارض" in cat_str or "اراضي" in cat_str:
+        return 19000
+    if "مزرعة" in cat_str or "مزارع" in cat_str:
+        return 18001
+    if "شاليه" in cat_str:
+        return 18002
 
     return None
 
