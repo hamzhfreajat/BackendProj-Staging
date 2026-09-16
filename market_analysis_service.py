@@ -5,7 +5,7 @@ from typing import Optional, List, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
-from models import Ad, AdSearchIndex
+from models import Ad, AdSearchIndex, SourceType
 
 logger = logging.getLogger(__name__)
 
