@@ -2207,6 +2207,32 @@ def update_ad_draft(
     db.refresh(db_ad)
     return db_ad
 
+
+def process_new_ad_background(ad_id: int):
+    from database import SessionLocal
+    from duplicate_detection_router import check_duplicates
+    from market_analysis_service import MarketAnalysisService
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    db = SessionLocal()
+    try:
+        # 1. Check duplicates
+        try:
+            check_duplicates(ad_id, db)
+            db.commit()
+        except Exception as e:
+            logger.error(f"Error checking duplicates for ad {ad_id}: {e}")
+            
+        # 2. Market Analysis
+        try:
+            MarketAnalysisService.calculate_and_save(ad_id, db)
+            db.commit()
+        except Exception as e:
+            logger.error(f"Error analyzing market for ad {ad_id}: {e}")
+    finally:
+        db.close()
+
 @app.post("/api/ads", response_model=schemas.Ad)
 def create_ad(
     ad: schemas.AdCreate, 
@@ -2382,6 +2408,7 @@ def create_ad(
         db.refresh(db_ad)
 
     # Notify: Ad submitted confirmation to the owner
+    background_tasks.add_task(process_new_ad_background, db_ad.id)
     background_tasks.add_task(
         send_personal_notification,
         target_user_id=db_ad.user_id,
@@ -2561,6 +2588,7 @@ def update_ad(
             reference_id=db_ad.id
         )
     
+    background_tasks.add_task(process_new_ad_background, db_ad.id)
     return db_ad
 
 @app.post("/api/ads/{ad_id}/bid", response_model=schemas.Ad, dependencies=[Depends(auth.get_rate_limiter(10, 60))])
