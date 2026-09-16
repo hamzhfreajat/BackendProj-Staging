@@ -19,7 +19,13 @@ NO_DATA_ALERT_THRESHOLD_PCT = 0.40
 # Sanity limits per category id (e.g. 1 = Real Estate)
 # Format: { category_id: (min_price, max_price) }
 PRICE_SANITY_BOUNDS = {
-    1: (1000.0, 10_000_000.0),
+    1: (1000.0, 10_000_000.0), # Generic Real Estate
+    2: (3000.0, 10_000_000.0), # Real estate for sale
+    10301: (5000.0, 10_000_000.0), # Apartments for sale
+    10302: (5000.0, 10_000_000.0), # Studios for sale
+    10102: (5000.0, 10_000_000.0), # Houses for sale
+    10104: (5000.0, 10_000_000.0), # Whole floors for sale
+    101: (300.0, 500_000.0),       # Cars for sale
     'default': (10.0, 1_000_000_000.0)
 }
 
