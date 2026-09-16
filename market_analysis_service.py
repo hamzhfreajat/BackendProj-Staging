@@ -133,6 +133,7 @@ class MarketAnalysisService:
             t_floor = float(idx.floor_number) if idx.floor_number is not None else None
             t_area = float(idx.build_area) if idx.build_area else None
             t_price = float(ad.price)
+            t_rent_duration = ad.attributes.get('dynamic_data', {}).get('rent_duration') if ad.attributes and isinstance(ad.attributes, dict) else None
             
             # Helper to filter comparables
             def get_level_prices(city_match=True, reg_match=True, floor_diff=None, age_diff=None, area_pct=None):
@@ -140,6 +141,10 @@ class MarketAnalysisService:
                 for p_val, c_city, c_reg, c_floor, c_attrs, c_area in raw_comps:
                     if city_match and c_city != idx.city_id: continue
                     if reg_match and c_reg != idx.region_id: continue
+                    
+                    if t_rent_duration is not None:
+                        c_rent = c_attrs.get('dynamic_data', {}).get('rent_duration') if c_attrs and isinstance(c_attrs, dict) else None
+                        if c_rent != t_rent_duration: continue
                     
                     if floor_diff is not None and t_floor is not None:
                         c_f = float(c_floor) if c_floor is not None else None
