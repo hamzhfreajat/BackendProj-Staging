@@ -171,7 +171,7 @@ class MarketAnalysisService:
             level_configs = [
                 (1, "high", dict(city_match=True, reg_match=True, floor_diff=1, age_diff=3, area_pct=0.10)),
                 (2, "medium", dict(city_match=True, reg_match=True, floor_diff=2, age_diff=7, area_pct=0.10)),
-                (3, "low", dict(city_match=True, reg_match=False, floor_diff=None, age_diff=None, area_pct=0.15)),
+                (3, "low", dict(city_match=True, reg_match=True, floor_diff=None, age_diff=None, area_pct=0.25)),
             ]
             
             matched = False
