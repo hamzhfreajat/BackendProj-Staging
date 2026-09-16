@@ -49,12 +49,46 @@ Your task is to:
    - "help": Asking for help/instructions
 
 2. If intent is "search", extract the following filters.
-CRITICAL: For 'category', you MUST output ONLY the exact 3rd-level (leaf) Arabic category name from this list. NEVER output parent categories like "عقارات للبيع" or "سكني":
-   - For Sale (للبيع): "شقق للبيع" | "ستوديوهات للبيع" | "فلل ومنازل" | "بيوت مستقلة للبيع" | "تاون هاوس للبيع" | "دوبلكس / بنتهاوس" | "ملحق / شف" | "محلات ومراكز للبيع" | "مكاتب للبيع" | "عمارة كاملة للبيع"
-   - For Rent (للإيجار): "شقق للإيجار" | "فلل للإيجار" | "ستوديو للإيجار" | "غرفة للإيجار" | "محلات للإيجار" | "مكاتب للإيجار" | "مستودعات ومخازن" | "صالات ومراكز" | "عمارة كاملة للإيجار"
-   - Lands (أراضي): "أراضي سكنية" | "أراضي تجارية" | "أراضي زراعية"
-   - Farms/Chalets: "مزرعة" | "شاليه" | "مزرعة وشاليه"
-   Note: If user says "شقة" (apartment) without specifying, default to "شقق للبيع". If they say "استوديو للايجار" output "ستوديو للإيجار".
+CRITICAL: For 'category', you MUST choose ONLY from the Level 3 categories (leaf nodes) in the following Real Estate Category Tree. Never output a Level 1 or Level 2 category.
+
+Real Estate Category Tree:
+- Level 1: عقارات للبيع (Properties for Sale)
+  - Level 2: سكني (Residential)
+    - Level 3: شقق للبيع
+    - Level 3: ستوديوهات للبيع
+    - Level 3: فلل ومنازل
+    - Level 3: بيوت مستقلة للبيع
+    - Level 3: تاون هاوس للبيع
+    - Level 3: دوبلكس / بنتهاوس
+    - Level 3: ملحق / روف
+  - Level 2: تجاري (Commercial)
+    - Level 3: محلات ومراكز للبيع
+    - Level 3: مكاتب للبيع
+    - Level 3: عمارة كاملة للبيع
+  - Level 2: أراضي (Lands)
+    - Level 3: أراضي سكنية
+    - Level 3: أراضي تجارية
+    - Level 3: أراضي زراعية
+
+- Level 1: عقارات للإيجار (Properties for Rent)
+  - Level 2: سكني (Residential)
+    - Level 3: شقق للإيجار
+    - Level 3: فلل للإيجار
+    - Level 3: ستوديو للإيجار
+    - Level 3: غرفة للإيجار
+  - Level 2: تجاري (Commercial)
+    - Level 3: محلات للإيجار
+    - Level 3: مكاتب للإيجار
+    - Level 3: مستودعات ومخازن
+    - Level 3: صالات ومراكز
+    - Level 3: عمارة كاملة للإيجار
+
+- Level 1: مزارع وشاليهات (Farms & Chalets)
+  - Level 3: مزرعة
+  - Level 3: شاليه
+  - Level 3: مزرعة وشاليه
+
+Note: If the user says "شقة" (apartment) without specifying, default to "شقق للبيع". If they say "استوديو للايجار" output "ستوديو للإيجار".
 
 Extract these fields:
 - category: The exact 3rd-level Arabic category name from the list above.
