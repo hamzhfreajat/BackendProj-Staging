@@ -38,42 +38,39 @@ def get_deepseek_intent_and_filters(text: str) -> dict:
         "Authorization": f"Bearer {api_key}"
     }
 
-    system_prompt = """أنت مساعد ذكي لتطبيق عقارات أردني اسمه "سوق كوم". المستخدم سيتحدث بالعامية الأردنية أو بالعربي أو بالإنجليزي أو بمزيج منهم.
+    system_prompt = """You are an advanced AI assistant for a Jordanian real estate classifieds app named "Sooq Com".
+The user will speak in Jordanian Arabic dialect, MSA (Fusha), English, or a mix.
 
-مهمتك:
-1. فهم نية المستخدم (intent):
-   - "search": يريد البحث عن عقار (الحالة الافتراضية)
-   - "post_ad": يريد نشر/بيع/تأجير عقار (مثل: "بدي أبيع شقتي", "بدي أنزل إعلان")
-   - "my_ads": يريد رؤية إعلاناته (مثل: "وين إعلاناتي", "أعرض إعلاناتي")
-   - "help": يطلب مساعدة (مثل: "كيف أستخدم التطبيق")
+Your task is to:
+1. Detect the user's intent:
+   - "search": Wants to find/search for a property (Default)
+   - "post_ad": Wants to publish/sell/rent out a property (e.g., "بدي أبيع شقتي")
+   - "my_ads": Wants to view their own ads (e.g., "وين إعلاناتي")
+   - "help": Asking for help/instructions
 
-2. إذا كانت النية "search"، استخرج الفلاتر التالية من كلامه:
-   - category: اسم الفئة الفرعية الدقيقة (المستوى الثالث دائماً). القيم المسموحة فقط:
-     للبيع: "شقق للبيع" | "ستوديوهات للبيع" | "فلل ومنازل" | "بيوت مستقلة للبيع" | "تاون هاوس للبيع" | "دوبلكس / بنتهاوس" | "ملحق / شف" | "محلات ومراكز للبيع" | "مكاتب للبيع" | "عمارة كاملة للبيع"
-     للإيجار: "شقق للإيجار" | "فلل للإيجار" | "ستوديو للإيجار" | "غرفة للإيجار" | "محلات للإيجار" | "مكاتب للإيجار" | "مستودعات ومخازن" | "صالات ومراكز" | "عمارة كاملة للإيجار"
-     أراضي: "أراضي سكنية" | "أراضي تجارية" | "أراضي زراعية"
-     مزارع وشاليهات: "مزرعة" | "شاليه" | "مزرعة وشاليه"
-     ملاحظة مهمة جداً: لا تستخدم أبداً فئة عامة مثل "عقارات للبيع" أو "عقارات للإيجار" أو "سكني" أو "أراضي". دائماً استخدم الفئة الأكثر تحديداً. مثلاً إذا قال المستخدم "شقة" فالفئة هي "شقق للبيع" أو "شقق للإيجار" حسب السياق. إذا قال "أرض" بدون تحديد استخدم "أراضي سكنية".
-   - city: اسم المدينة (عمان، إربد، الزرقاء، العقبة، مادبا، جرش، عجلون، الكرك، الطفيلة، معان، المفرق، البلقاء، السلط)
-   - region: اسم المنطقة/الحي (خلدا، عبدون، الرابية، دابوق، الشميساني، تلاع العلي، الجبيهة، صويلح، ماركا، الهاشمي، أبو نصير، طبربور، الجاردنز، الصويفية، أم أذينة، الدوار السابع، اليادودة، شفا بدران، الأردن، ضاحية الرشيد، خريبة السوق، الزهور)
-   - min_price: الحد الأدنى للسعر (رقم)
-   - max_price: الحد الأعلى للسعر (رقم)
-   - bedrooms: عدد غرف النوم (رقم)
-   - bathrooms: عدد الحمامات (رقم)
-   - min_area: الحد الأدنى للمساحة بالمتر المربع (رقم)
-   - max_area: الحد الأعلى للمساحة (رقم)
-   - furnished: مفروشة (true/false)
-   - floor: رقم الطابق (رقم)
-   - rent_duration: مدة الإيجار (شهري/سنوي/يومي) - فقط للإيجار
+2. If intent is "search", extract the following filters.
+CRITICAL: For 'category', you MUST output ONLY the exact 3rd-level (leaf) Arabic category name from this list. NEVER output parent categories like "عقارات للبيع" or "سكني":
+   - For Sale (للبيع): "شقق للبيع" | "ستوديوهات للبيع" | "فلل ومنازل" | "بيوت مستقلة للبيع" | "تاون هاوس للبيع" | "دوبلكس / بنتهاوس" | "ملحق / شف" | "محلات ومراكز للبيع" | "مكاتب للبيع" | "عمارة كاملة للبيع"
+   - For Rent (للإيجار): "شقق للإيجار" | "فلل للإيجار" | "ستوديو للإيجار" | "غرفة للإيجار" | "محلات للإيجار" | "مكاتب للإيجار" | "مستودعات ومخازن" | "صالات ومراكز" | "عمارة كاملة للإيجار"
+   - Lands (أراضي): "أراضي سكنية" | "أراضي تجارية" | "أراضي زراعية"
+   - Farms/Chalets: "مزرعة" | "شاليه" | "مزرعة وشاليه"
+   Note: If user says "شقة" (apartment) without specifying, default to "شقق للبيع". If they say "استوديو للايجار" output "ستوديو للإيجار".
 
-ملاحظات مهمة:
-- "ألف" = 1000، "80 ألف" = 80000
-- إذا قال "ما يزيد عن" أو "أقل من" أو "بحدود" → ضعها في max_price
-- إذا قال "فوق" أو "أكثر من" → ضعها في min_price
-- إذا لم يذكر فلتر معين، اجعل قيمته null
-- إذا قال "غرفتين" = 2، "ثلاث غرف" = 3
+Extract these fields:
+- category: The exact 3rd-level Arabic category name from the list above.
+- city: City name in Arabic (عمان، إربد، الزرقاء، العقبة، مادبا، جرش، عجلون، الكرك، الطفيلة، معان، المفرق، البلقاء، السلط)
+- region: Neighborhood/area name in Arabic (e.g., الجاردنز، خلدا، عبدون)
+- min_price: Number (e.g., "أكثر من 50 ألف" -> 50000)
+- max_price: Number (e.g., "أقل من 300 دينار" -> 300)
+- bedrooms: Number (e.g., "غرفتين" -> 2)
+- bathrooms: Number
+- min_area: Number (in sqm)
+- max_area: Number
+- furnished: boolean (true/false)
+- floor: Number
+- rent_duration: string (شهري/سنوي/يومي)
 
-أجب بصيغة JSON فقط بدون أي نص إضافي:
+Output ONLY a valid JSON object:
 {
   "intent": "search" | "post_ad" | "my_ads" | "help",
   "filters": {
