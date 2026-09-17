@@ -3,7 +3,7 @@ import json
 import logging
 import urllib.request
 import urllib.error
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -65,60 +65,17 @@ Real Estate Category Tree:
     - Level 3: عمارات سكنية
   - Level 2: تجاري
     - Level 3: محلات ومعارض للبيع
-      - Level 4: محلات تجارية عامة
-      - Level 4: كشك / بسطة / مساحة مفتوحة
-      - Level 4: محل مغلق
-      - Level 4: بسطة / مساحة مفتوحة
     - Level 3: مكاتب للبيع
-      - Level 4: مقر مستقل
-      - Level 4: مكتب
-      - Level 4: مقر شركة
-      - Level 4: مبنى إداري
     - Level 3: معارض تجارية متخصصة
-      - Level 4: معارض سيارات
-      - Level 4: معرض مستقل
-      - Level 4: معارض أجهزة كهربائية وإلكترونيات
-      - Level 4: معارض ملابس وأحذية
     - Level 3: صالونات ومراكز تجميل
-      - Level 4: صالون حلاقة رجالي
-      - Level 4: صالون تجميل نسائي / سبا
     - Level 3: مطاعم ومقاهي
-      - Level 4: مطعم
-      - Level 4: كافيه / مقهى
-      - Level 4: مطعم وكافيه
     - Level 3: مخازن ومستودعات
-      - Level 4: مخزن متصل بمحل
-      - Level 4: مخزن خلفي
-      - Level 4: مستودع مستقل
-      - Level 4: مخزن
     - Level 3: عيادات ومراكز طبية
-      - Level 4: عيادة
-      - Level 4: مركز طبي
-      - Level 4: مختبر
-      - Level 4: صيدلية
     - Level 3: مراكز تعليمية
-      - Level 4: مدرسة
-      - Level 4: روضة
-      - Level 4: مركز تدريب
-      - Level 4: معهد
     - Level 3: صالات ومرافق
-      - Level 4: صالة رياضية
-      - Level 4: صالة أفراح
-      - Level 4: صالة عرض
-      - Level 4: نادي
     - Level 3: فنادق وسياحة
-      - Level 4: فندق
-      - Level 4: بيت ضيافة
-      - Level 4: نزل
     - Level 3: أراضي تجارية
-      - Level 4: أرض تجارية
-      - Level 4: أرض صناعية
-      - Level 4: أرض استثمارية
     - Level 3: مباني تجارية كاملة
-      - Level 4: عمارة تجارية
-      - Level 4: مجمع تجاري
-      - Level 4: مول
-      - Level 4: مبنى متعدد الاستخدام
     - Level 3: أخرى
   - Level 2: أراضي
     - Level 3: أراضي سكنية
@@ -127,111 +84,28 @@ Real Estate Category Tree:
     - Level 3: أراضي زراعية
     - Level 3: أراضي سياحية
     - Level 3: أراضي متعددة الاستخدام
-      - Level 4: أرض تنظيم خاص
-      - Level 4: أرض استثمار
-      - Level 4: أرض استعمال مختلط
-      - Level 4: أرض مشروع
     - Level 3: أراضي حكومية / تنظيم خاص
-      - Level 4: أرض أملاك دولة
-      - Level 4: أرض وقف
-      - Level 4: أرض تنظيم حكومي
     - Level 3: أراضي بدون تنظيم
-      - Level 4: أرض خارج التنظيم
-      - Level 4: أرض بادية
-      - Level 4: أرض فضاء
-      - Level 4: أرض غير مصنفة
   - Level 2: مزارع
     - Level 3: مزارع زراعية
-      - Level 4: مزرعة خضار
-      - Level 4: مزرعة فواكه
-      - Level 4: مزرعة زيتون
-      - Level 4: مزرعة حمضيات
-      - Level 4: مزرعة محاصيل
-      - Level 4: مزرعة أشجار
     - Level 3: مزارع تربية حيوانات
-      - Level 4: مزرعة أغنام
-      - Level 4: مزرعة أبقار
-      - Level 4: مزرعة دواجن
-      - Level 4: مزرعة خيول
-      - Level 4: مزرعة أسماك
-      - Level 4: مزرعة نحل
     - Level 3: مزارع استثمارية
-      - Level 4: مزرعة استثمارية
-      - Level 4: مزرعة منتجة
-      - Level 4: مزرعة مشروع
-      - Level 4: مزرعة تجارية
     - Level 3: مزارع مع سكن
-      - Level 4: مزرعة مع بيت
-      - Level 4: مزرعة مع فيلا
-      - Level 4: مزرعة مع استراحة
-      - Level 4: مزرعة مع شاليه
     - Level 3: مزارع سياحية / ترفيهية
-      - Level 4: مزرعة سياحية
-      - Level 4: مزرعة رحلات
-      - Level 4: مزرعة منتجع
-      - Level 4: مزرعة فعاليات
     - Level 3: مزارع مجهزة بالبنية التحتية
-      - Level 4: مزرعة مع بئر
-      - Level 4: مزرعة مع كهرباء
-      - Level 4: مزرعة مع بيت بلاستيك
-      - Level 4: مزرعة مع مستودعات
     - Level 3: مزارع صناعية / إنتاجية
-      - Level 4: مزرعة أعلاف
-      - Level 4: مزرعة ألبان
-      - Level 4: مزرعة دواجن تجارية
-      - Level 4: مزرعة إنتاج غذائي
     - Level 3: مزارع غير مستغلة
-      - Level 4: مزرعة غير مزروعة
-      - Level 4: مزرعة أرض فقط
-      - Level 4: مزرعة بحاجة تأهيل
-      - Level 4: مزرعة غير مستثمرة
     - Level 3: أخرى
   - Level 2: شاليهات / منتجعات / بيوت ريفية
     - Level 3: شاليهات
-      - Level 4: شاليه مستقل
-      - Level 4: شاليه ضمن مجمع
-      - Level 4: شاليه مع مسبح
-      - Level 4: شاليه مع حديقة
-      - Level 4: شاليه مع إطلالة
     - Level 3: منتجعات
-      - Level 4: منتجع سياحي
-      - Level 4: منتجع عائلي
-      - Level 4: منتجع علاجي
-      - Level 4: منتجع جبلي
-      - Level 4: منتجع بحري
     - Level 3: استراحات ومزارع ترفيهية
-      - Level 4: استراحة
-      - Level 4: استراحة عائلية
-      - Level 4: مزرعة ترفيهية
-      - Level 4: مزرعة مع مسبح
     - Level 3: شقق فندقية
-      - Level 4: شقة فندقية
-      - Level 4: جناح فندقي
-      - Level 4: فيلا فندقية
     - Level 3: فلل سياحية
-      - Level 4: فيلا سياحية
-      - Level 4: فيلا ضمن منتجع
-      - Level 4: فيلا عطلات
     - Level 3: مواقع تخييم ورحلات
-      - Level 4: موقع تخييم
-      - Level 4: مخيم سياحي
-      - Level 4: مخيم صحراوي
-      - Level 4: موقع كرفانات
     - Level 3: بيوت ضيافة
-      - Level 4: بيت ضيافة
-      - Level 4: نُزل
-      - Level 4: نُزل ريفي
-      - Level 4: بيت تراثي سياحي
     - Level 3: مشاريع سياحية
-      - Level 4: مشروع منتجع
-      - Level 4: مشروع شاليهات
-      - Level 4: أرض مشروع سياحي
-      - Level 4: مجمع سياحي
     - Level 3: بيوت ريفية
-      - Level 4: بيت ريفي
-      - Level 4: بيت ريفي سياحي
-      - Level 4: بيت تراثي
-      - Level 4: بيت طيني
     - Level 3: أخرى
 - Level 1: عقارات للإيجار
   - Level 2: سكن مشترك
@@ -267,12 +141,21 @@ Real Estate Category Tree:
   - Level 2: شاليهات / منتجعات
   - Level 2: بيوت ريفية
 
-Note: If the user says "شقة" (apartment) without specifying, default to "شقق للبيع". If they say "استوديو للايجار" output "ستوديو للإيجار".
+Note: If the user says "شقة" (apartment) without specifying sale or rent, default to "شقق للبيع". If they mention rent ("إيجار", "ايجار", "الايجار", "الإيجار"), choose from عقارات للإيجار tree.
+
+IMPORTANT Jordanian dialect vocabulary:
+- "معشية" / "معشيه" / "مأثثة" / "مفروشة" = furnished (true)
+- "فاضية" / "فاضيه" = unfurnished (false)
+- "غرفتين نوم" = 2 bedrooms (count ONLY sleeping bedrooms, NOT guest rooms, salons, or living rooms)
+- "غرفة ضيوف" / "صالون" / "صلون" / "ليفينج" = these are living/reception areas, do NOT count them as bedrooms
+- "لحد" / "لحدود" = up to (max_price)
+- Arabic-Hindi numerals: ٠=0, ١=1, ٢=2, ٣=3, ٤=4, ٥=5, ٦=6, ٧=7, ٨=8, ٩=9
+- "او" / "أو" / "ولا" = OR (user wants multiple regions, put ALL in the regions array)
 
 Extract these fields:
 - category: The exact 3rd-level Arabic category name from the list above.
-- city: City name in Arabic. You MUST choose ONLY from the valid cities list below.
-- region: Neighborhood/area name in Arabic. You MUST choose ONLY from the valid regions list below. If the user mentions a region with prefixes like 'بـ' or 'في' (e.g., "بالجاردنز", "في عبدون"), you MUST extract the exact region name from the list without prefixes (e.g., "الجاردنز", "عبدون").
+- city: City name in Arabic. You MUST choose ONLY from the valid cities list below. If the user mentions a region, infer the city from the list.
+- regions: An ARRAY of neighborhood/area names. If the user says "الياسمين او الذراع" output ["الياسمين", "الذراع"]. Strip prefixes like 'بـ', 'في', 'بال' (e.g., "بالجاردنز" -> "الجاردنز"). You MUST choose ONLY from the valid regions list below.
 
 Cities and Regions (Use ONLY these exact names):
 - City: عمان | Regions: ابو السوس, ابو النعير, ابو علندا, ابو نصير, ارينبه الغربية, البقعه, البنيات, الجبيهة, الدمينه, الدوار الرابع, الدوار الثامن, الذهيبه الشرقيه, الروابي, الصويفية, العبدلي, العبدلية, اللبّن, المدينة الرياضية, المناره, ام اذينة الشرقي, ام البساتين, ام الدنانير, ام السماق, أم العمد, ام زويتينة, تلاع العلي الشمالي, حوارة, دير غبار, زويزا, أخرى, شارع المدينة, ضاحية الامير حسن, ضاحية الامير راشد, ضاحية الحاج حسن, ضاحية الرشيد, وادي السرور, وادي صقرة, دوار الداخلية, دوار الواحة, شارع المدينة المنورة, أم الحيران, إسكان المالية والزراعة, إسكان الملكية, النويجيس, بزنس بارك, جبل القلعة, دوار الكيلو, دوار المشاغل, شارع الحزام, شارع مادبا, ضاحية الأميرة إيمان, طلوع نيفين, عين غزال, وادي الرمم, البحاث, البصة, البيضاء, الجاردنز, الجويدة, الجيزة, الحرّيّة, الحسنية, الحمر, الحمرانية, الخريم, الخزنة, الدوار الأول, الدوار الثاني, الدوار الثالث, الدوار السابع, الديار, الذراع, الذهيبة, الرابية, الربوة, الرجوم, الرجيب, الرضوان, الرقيم, الرونق, الزهراء, الزيتونة, السهل, الصناعة, الضياء, الطنيب, الظهير, العال, العدلية, العروبة, العودة, الفروسية, الفيصل, القسطل, القصبات, القويسمة, الكرسي, الكمالية, الماضونة, المحطة, المشقر, المعادي, المقابلين, الموقر, النهارية, ضاحية الأرز, الهاشمي الجنوبي, الوحدات, اليادودة, الياسمين, اليرموك, ام اذينة, ام اذينة الغربي, أم الأسود, ارينبه الشرقية, أم رمانة, أم شطيرات, أم قصير, ام نوارة, بدر, بسمان, بلال, بيرين, تلاع العلي, جاوا, جبل الأشرفية, جبل التاج, جبل اللويبدة, جبل المريخ, جبل النزهة, جبل النصر, جبل عمان, جلول, حسبان, حطين, حي نزال, خان الزبيب, خربة السوق, راس العين, رجم الشامي, سالم, سحاب, شارع الأردن, شارع الجامعة, شارع مكة, شفا بدران, شميساني, صافوط, صويلح, ضاحية الأمير علي, ضاحية النخيل, ضبعه, طبربور, طريق المطار, عبدون, عبدون الجنوبي, عبدون الشمالي, عراق الامير, عيون الذيب, قعفور, ماحص, ماركا, ماركا الشمالية, مرج الحمام, مرج الفرس, موبص, وادي الحدادة, وادي السير, وادي الطي, تلاع العلي الشرقي, ياجوز, وادي العش, الأمير حمزة, الايمان, البيادر, الجميل, الجندويل, الخشافية, الخضراء, الدوار الخامس, الرجيلة, الزعفران, الفحيص, القصور, الكوم الشرقي, الكوم الغربي, المشتى, المنصور, الهاشمي الشمالي, ام الرصاص, أم الكندم, بدر الجديدة, جبل الجوفة, جبل الحسين, جبل النظيف, خلدا, دابوق, زبود, زينب, صالحية العابد, ضاحية الحسين, عرجان, عين رباط, ماركا الجنوبية, ناعور, وسط البلد, الجبل الأخضر, الدمينا, الدوار السادس, الذهيبة الغربيه, الزميلة, السرو, القنيطره, الكتيفه, المرقب, المستندة, المغيرات, النقيرة, جبل الزهور, حجار النوابلسة, حي البركة, حي الخالدين, حي الرحمانية, حي الصالحين, حي الصحابة, حي عدن, رجم الشوف, رجم عميش, زملة العليا, زينات الربوع, شارع المية, صوفا, ضاحية الاستقلال, ضاحية الاقصى, ضاحية الروضة, طريق المطار - جسر ديونز, طريق المطار - جسر مادبا, طلوع المصدار
@@ -289,12 +172,12 @@ Cities and Regions (Use ONLY these exact names):
 - City: الطفيلة | Regions: أخرى, عابور, وادي زيد, الحسا, الرشادية, العيص, القادسية, بصيرة, جرف الدراويش, ضانا
 
 - min_price: Number (e.g., "أكثر من 50 ألف" -> 50000)
-- max_price: Number (e.g., "أقل من 300 دينار" -> 300)
-- bedrooms: Number (e.g., "غرفتين" -> 2)
+- max_price: Number (e.g., "أقل من 300 دينار" -> 300, "لحد ٢٣٠" -> 230). Convert Arabic-Hindi numerals (٠١٢٣٤٥٦٧٨٩) to regular numbers.
+- bedrooms: Number. Count ONLY sleeping bedrooms ("غرف نوم"). Do NOT count guest rooms (غرفة ضيوف), salons (صالون/صلون), or living rooms. Example: "غرفتين نوم وغرفة ضيوف وصلون" -> bedrooms: 2
 - bathrooms: Number
 - min_area: Number (in sqm)
 - max_area: Number
-- furnished: boolean (true/false)
+- furnished: boolean (true if user says مفروشة/معشية/مأثثة/مفروش, false if فاضية/غير مفروشة)
 - floor: Number
 - rent_duration: string (شهري/سنوي/يومي)
 
@@ -304,7 +187,7 @@ Output ONLY a valid JSON object:
   "filters": {
     "category": string | null,
     "city": string | null,
-    "region": string | null,
+    "regions": [string] | [],
     "min_price": number | null,
     "max_price": number | null,
     "bedrooms": number | null,
@@ -386,7 +269,6 @@ def map_category(category_name: str, intent_filters: dict) -> Optional[int]:
         "ملحق / روف": 10105,
         "شقق للبيع": 10301,
         "ستوديوهات للبيع": 10302,
-        "أخرى": 10999,
         "عمارات سكنية": 5050717,
         "محلات تجارية عامة": 10853,
         "كشك / بسطة / مساحة مفتوحة": 10872,
@@ -431,7 +313,6 @@ def map_category(category_name: str, intent_filters: dict) -> Optional[int]:
         "مجمع تجاري": 18034,
         "مول": 18035,
         "مبنى متعدد الاستخدام": 18036,
-        "أخرى": 18037,
         "أراضي سكنية": 19000,
         "أراضي تجارية": 19010,
         "أراضي صناعية": 19020,
@@ -448,80 +329,23 @@ def map_category(category_name: str, intent_filters: dict) -> Optional[int]:
         "أرض بادية": 19072,
         "أرض فضاء": 19073,
         "أرض غير مصنفة": 19074,
-        "مزرعة خضار": 19201,
-        "مزرعة فواكه": 19202,
-        "مزرعة زيتون": 19203,
-        "مزرعة حمضيات": 19204,
-        "مزرعة محاصيل": 19205,
-        "مزرعة أشجار": 19206,
-        "مزرعة أغنام": 19211,
-        "مزرعة أبقار": 19212,
-        "مزرعة دواجن": 19213,
-        "مزرعة خيول": 19214,
-        "مزرعة أسماك": 19215,
-        "مزرعة نحل": 19216,
-        "مزرعة استثمارية": 19221,
-        "مزرعة منتجة": 19222,
-        "مزرعة مشروع": 19223,
-        "مزرعة تجارية": 19224,
-        "مزرعة مع بيت": 19231,
-        "مزرعة مع فيلا": 19232,
-        "مزرعة مع استراحة": 19233,
-        "مزرعة مع شاليه": 19234,
-        "مزرعة سياحية": 19241,
-        "مزرعة رحلات": 19242,
-        "مزرعة منتجع": 19243,
-        "مزرعة فعاليات": 19244,
-        "مزرعة مع بئر": 19251,
-        "مزرعة مع كهرباء": 19252,
-        "مزرعة مع بيت بلاستيك": 19253,
-        "مزرعة مع مستودعات": 19254,
-        "مزرعة أعلاف": 19261,
-        "مزرعة ألبان": 19262,
-        "مزرعة دواجن تجارية": 19263,
-        "مزرعة إنتاج غذائي": 19264,
-        "مزرعة غير مزروعة": 19271,
-        "مزرعة أرض فقط": 19272,
-        "مزرعة بحاجة تأهيل": 19273,
-        "مزرعة غير مستثمرة": 19274,
-        "أخرى": 19280,
-        "شاليه مستقل": 19301,
-        "شاليه ضمن مجمع": 19302,
-        "شاليه مع مسبح": 19303,
-        "شاليه مع حديقة": 19304,
-        "شاليه مع إطلالة": 19305,
-        "منتجع سياحي": 19311,
-        "منتجع عائلي": 19312,
-        "منتجع علاجي": 19313,
-        "منتجع جبلي": 19314,
-        "منتجع بحري": 19315,
-        "استراحة": 19321,
-        "استراحة عائلية": 19322,
-        "مزرعة ترفيهية": 19323,
-        "مزرعة مع مسبح": 19324,
-        "شقة فندقية": 19331,
-        "جناح فندقي": 19332,
-        "فيلا فندقية": 19333,
-        "فيلا سياحية": 19341,
-        "فيلا ضمن منتجع": 19342,
-        "فيلا عطلات": 19343,
-        "موقع تخييم": 19351,
-        "مخيم سياحي": 19352,
-        "مخيم صحراوي": 19353,
-        "موقع كرفانات": 19354,
-        "بيت ضيافة": 19361,
-        "نُزل": 19362,
-        "نُزل ريفي": 19363,
-        "بيت تراثي سياحي": 19364,
-        "مشروع منتجع": 19371,
-        "مشروع شاليهات": 19372,
-        "أرض مشروع سياحي": 19373,
-        "مجمع سياحي": 19374,
-        "بيت ريفي": 19381,
-        "بيت ريفي سياحي": 19382,
-        "بيت تراثي": 19383,
-        "بيت طيني": 19384,
-        "أخرى": 19390,
+        "مزارع زراعية": 19201,
+        "مزارع تربية حيوانات": 19211,
+        "مزارع استثمارية": 19221,
+        "مزارع مع سكن": 19231,
+        "مزارع سياحية / ترفيهية": 19241,
+        "مزارع مجهزة بالبنية التحتية": 19251,
+        "مزارع صناعية / إنتاجية": 19261,
+        "مزارع غير مستغلة": 19271,
+        "شاليهات": 19301,
+        "منتجعات": 19311,
+        "استراحات ومزارع ترفيهية": 19321,
+        "شقق فندقية": 19331,
+        "فلل سياحية": 19341,
+        "مواقع تخييم ورحلات": 19351,
+        "بيوت ضيافة": 19361,
+        "مشاريع سياحية": 19371,
+        "بيوت ريفية": 19381,
         "سكن طلاب (ذكور)": 3061,
         "سكن طالبات (إناث)": 3062,
         "سكن موظفين": 3063,
@@ -530,11 +354,8 @@ def map_category(category_name: str, intent_filters: dict) -> Optional[int]:
         "سرير في غرفة مشتركة": 3066,
         "شقق للإيجار": 301,
         "ستوديوهات للإيجار": 302,
-        "فلل وقصور": 3101,
         "بيوت مستقلة للإيجار": 3102,
-        "دوبلكس / بنتهاوس": 3103,
         "طابق كامل للإيجار": 3104,
-        "ملحق / روف": 3105,
         "محلات ومعارض للإيجار": 303,
         "مكاتب للإيجار": 304,
         "معارض تجارية متخصصة": 1203020507,
@@ -542,15 +363,12 @@ def map_category(category_name: str, intent_filters: dict) -> Optional[int]:
         "مطاعم ومقاهي": 1203020509,
         "مخازن ومستودعات": 1203020510,
         "مراكز تعليمية": 1203020511,
-        "أراضي تجارية": 1203020512,
         "مباني تجارية كاملة": 1203020513,
-        "أخرى": 1203020514,
         "عيادات ومراكز طبية": 1203020515,
         "صالات ومرافق": 1203020516,
         "فنادق وسياحة": 1203020517,
         "مزارع": 314,
         "شاليهات / منتجعات": 315,
-        "بيوت ريفية": 316,
     }
     
     # Exact match first
@@ -566,17 +384,15 @@ def map_category(category_name: str, intent_filters: dict) -> Optional[int]:
     # Keyword-based matching - ALWAYS resolve to leaf subcategory
     if "إيجار" in cat_str or "ايجار" in cat_str:
         if "ستوديو" in cat_str:
-            return 10015
-        if "فلل" in cat_str or "فيلا" in cat_str:
             return 302
+        if "فلل" in cat_str or "فيلا" in cat_str:
+            return 3101
         if "محل" in cat_str:
-            return 10853
+            return 303
         if "مكتب" in cat_str:
-            return 10874
-        if "غرف" in cat_str:
-            return 10999
+            return 304
         if "مستودع" in cat_str or "مخزن" in cat_str:
-            return 10875
+            return 1203020510
         # Default rental = شقق للإيجار (leaf)
         return 301
         
@@ -584,17 +400,17 @@ def map_category(category_name: str, intent_filters: dict) -> Optional[int]:
         if "ستوديو" in cat_str:
             return 10302
         if "أرض" in cat_str or "اراضي" in cat_str or "ارض" in cat_str:
-            return 19000  # أراضي سكنية as default
+            return 19000
         if "فلل" in cat_str or "فيلا" in cat_str:
             return 10101
         if "بيت" in cat_str or "بيوت" in cat_str:
             return 10102
         if "محل" in cat_str:
-            return 10303
+            return 10853
         if "مكتب" in cat_str:
-            return 10876
+            return 18004
         if "عمار" in cat_str:
-            return 10878
+            return 5050717
         # Default sale = شقق للبيع (leaf)
         return 10301
 
@@ -606,9 +422,9 @@ def map_category(category_name: str, intent_filters: dict) -> Optional[int]:
     if "أرض" in cat_str or "ارض" in cat_str or "اراضي" in cat_str:
         return 19000
     if "مزرعة" in cat_str or "مزارع" in cat_str:
-        return 18001
+        return 19201
     if "شاليه" in cat_str:
-        return 18002
+        return 19301
 
     return None
 
@@ -623,13 +439,19 @@ def build_search_query(db: Session, filters: dict):
     )
 
     if filters.get("category_id"):
-        # For simplicity, assuming exact match or you might want to handle parent/child matching
         q = q.filter(models.AdSearchIndex.category_id == filters["category_id"])
         
     if filters.get("city_id"):
         q = q.filter(models.AdSearchIndex.city_id == filters["city_id"])
         
-    if filters.get("region_id"):
+    # Support multiple region IDs
+    region_ids = filters.get("region_ids", [])
+    if region_ids:
+        if len(region_ids) == 1:
+            q = q.filter(models.AdSearchIndex.region_id == region_ids[0])
+        else:
+            q = q.filter(models.AdSearchIndex.region_id.in_(region_ids))
+    elif filters.get("region_id"):
         q = q.filter(models.AdSearchIndex.region_id == filters["region_id"])
         
     if filters.get("min_price"):
@@ -650,7 +472,6 @@ def build_search_query(db: Session, filters: dict):
     if filters.get("floor") is not None:
         q = q.filter(models.AdSearchIndex.floor_number == filters["floor"])
         
-    # Build area would require min_area/max_area support in AdSearchIndex
     if filters.get("min_area") is not None and hasattr(models.AdSearchIndex, 'build_area'):
         q = q.filter(models.AdSearchIndex.build_area >= filters["min_area"])
         
@@ -658,6 +479,39 @@ def build_search_query(db: Session, filters: dict):
         q = q.filter(models.AdSearchIndex.build_area <= filters["max_area"])
         
     return q
+
+def resolve_regions(db: Session, region_names: list, city_id: int = None) -> list:
+    """Resolve a list of region names to (region_id, region_name_ar) tuples."""
+    results = []
+    for region_name in region_names:
+        if not region_name:
+            continue
+        region_query = db.query(models.Region).filter(
+            or_(
+                models.Region.name_ar.ilike(f"%{region_name}%"),
+                models.Region.name_en.ilike(f"%{region_name}%")
+            )
+        )
+        if city_id:
+            region_query = region_query.filter(models.Region.city_id == city_id)
+            
+        region = region_query.first()
+        if not region:
+            # Check aliases
+            alias_query = db.query(models.RegionAlias).join(models.Region).filter(
+                models.RegionAlias.alias_name.ilike(f"%{region_name}%")
+            )
+            if city_id:
+                alias_query = alias_query.filter(models.Region.city_id == city_id)
+            alias = alias_query.first()
+            if alias:
+                # Get region for alias
+                aliased_region = db.query(models.Region).filter(models.Region.id == alias.region_id).first()
+                if aliased_region:
+                    results.append((aliased_region.id, aliased_region.name_ar))
+        else:
+            results.append((region.id, region.name_ar))
+    return results
 
 @smart_search_router.post("/api/smart-voice-search", response_model=SmartSearchResponse)
 def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db)):
@@ -678,6 +532,7 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     
     # Map city
     city_id = None
+    city_name_ar = None
     if ai_filters.get("city"):
         city_name = ai_filters["city"]
         city = db.query(models.City).filter(
@@ -688,49 +543,68 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         ).first()
         if city:
             city_id = city.id
+            city_name_ar = city.name_ar
             
-    # Map region
-    region_id = None
-    if ai_filters.get("region"):
-        region_name = ai_filters["region"]
-        region_query = db.query(models.Region).filter(
-            or_(
-                models.Region.name_ar.ilike(f"%{region_name}%"),
-                models.Region.name_en.ilike(f"%{region_name}%")
-            )
-        )
-        if city_id:
-            region_query = region_query.filter(models.Region.city_id == city_id)
-            
-        region = region_query.first()
-        if not region:
-            # Check aliases
-            alias_query = db.query(models.RegionAlias).join(models.Region).filter(
-                models.RegionAlias.alias_name.ilike(f"%{region_name}%")
-            )
-            if city_id:
-                alias_query = alias_query.filter(models.Region.city_id == city_id)
-            alias = alias_query.first()
-            if alias:
-                region_id = alias.region_id
-        else:
-            region_id = region.id
+    # Map regions (now an array)
+    region_ids = []
+    region_names = []
+    ai_regions = ai_filters.get("regions", [])
+    # Backward compatibility: if AI returned old "region" string field
+    if not ai_regions and ai_filters.get("region"):
+        ai_regions = [ai_filters["region"]]
+    
+    if ai_regions:
+        resolved = resolve_regions(db, ai_regions, city_id)
+        for rid, rname in resolved:
+            region_ids.append(rid)
+            region_names.append(rname)
+        
+        # If we found regions but no city, infer city from first region
+        if region_ids and not city_id:
+            first_region = db.query(models.Region).filter(models.Region.id == region_ids[0]).first()
+            if first_region:
+                city = db.query(models.City).filter(models.City.id == first_region.city_id).first()
+                if city:
+                    city_id = city.id
+                    city_name_ar = city.name_ar
+
+    # Build location_names array for frontend (city first, then regions)
+    location_names = []
+    if city_name_ar:
+        location_names.append(city_name_ar)
+    for rn in region_names:
+        if rn not in location_names:
+            location_names.append(rn)
+
+    # Build tags array for frontend
+    tags = []
+    bedrooms = ai_filters.get("bedrooms")
+    if bedrooms is not None:
+        tags.append(f"bedrooms:{bedrooms}")
+    
+    furnished = ai_filters.get("furnished")
+    if furnished is True:
+        tags.append("furnished:مفروشة")
+    elif furnished is False:
+        tags.append("furnished:غير مفروشة")
 
     applied_filters = {
         "category_id": category_id,
         "city_id": city_id,
-        "region_id": region_id,
+        "region_ids": region_ids,
         "min_price": ai_filters.get("min_price"),
         "max_price": ai_filters.get("max_price"),
-        "bedrooms": ai_filters.get("bedrooms"),
+        "bedrooms": bedrooms,
         "bathrooms": ai_filters.get("bathrooms"),
-        "furnished": ai_filters.get("furnished"),
+        "furnished": furnished,
         "floor": ai_filters.get("floor"),
         "min_area": ai_filters.get("min_area"),
         "max_area": ai_filters.get("max_area"),
         "category_name": ai_filters.get("category"),
-        "city_name": ai_filters.get("city"),
-        "region_name": ai_filters.get("region")
+        "city_name": city_name_ar,
+        "region_names": region_names,
+        "location_names": location_names,
+        "tags": tags,
     }
     
     query = build_search_query(db, applied_filters)
@@ -743,9 +617,9 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
             filters_applied=applied_filters
         )
         
-    # Fallback system
+    # Fallback system - progressively remove filters
     fallback_order = [
-        "max_price", "min_price", "region_id", "bedrooms", 
+        "max_price", "min_price", "region_ids", "bedrooms", 
         "bathrooms", "furnished", "floor", "min_area", "max_area"
     ]
     
@@ -754,9 +628,13 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     removed_filter_name = ""
     
     for filter_key in fallback_order:
-        if alternative_filters.get(filter_key) is not None:
+        current_val = alternative_filters.get(filter_key)
+        if current_val is not None and current_val != [] and current_val != False:
             temp_val = alternative_filters[filter_key]
-            alternative_filters[filter_key] = None
+            if filter_key == "region_ids":
+                alternative_filters[filter_key] = []
+            else:
+                alternative_filters[filter_key] = None
             
             fallback_query = build_search_query(db, alternative_filters)
             alternative_count = fallback_query.count()
@@ -764,6 +642,9 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
             if alternative_count > 0:
                 removed_filter_name = filter_key
                 break
+            
+            # Restore and try next
+            alternative_filters[filter_key] = temp_val
                 
     if alternative_count > 0:
         suggestion = generate_fallback_suggestion(applied_filters, alternative_count, removed_filter_name)
