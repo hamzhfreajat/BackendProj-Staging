@@ -29,6 +29,7 @@ class SmartSearchResponse(BaseModel):
     suggestion: Optional[str] = None
     alternative_count: Optional[int] = None
     alternative_filters: Optional[dict] = None
+    action_required: Optional[str] = None
 
 def extract_raw_data_via_deepseek(text: str) -> dict:
     """
@@ -125,9 +126,65 @@ def generate_fallback_suggestion(original_filters: dict, alternative_count: int,
         return "Ù„Ø§ ØªÙˆØ¬Ø¯ Ù†ØªØ§Ø¦Ø¬ Ù…Ø·Ø§Ø¨Ù‚Ø©ØŒ Ø¬Ø±Ø¨ ØªØºÙŠÙŠØ± Ø¨Ø¹Ø¶ Ø§Ù„ÙÙ„Ø§ØªØ± Ù„Ù„Ø­ØµÙˆÙ„ Ø¹Ù„Ù‰ Ù†ØªØ§Ø¦Ø¬."
 
 def map_category_smart(raw_prop: str, raw_trans: str) -> Optional[int]:
-    """Combines property type and transaction to find the best category ID."""
+    "\"\"Combines property type and transaction to find the best category ID.\"\"\""
     if not raw_prop:
         return None
+        
+    prop_norm = raw_prop.lower()
+    
+    # 1. Resolve Transaction (Sale vs Rent)
+    is_rent = (raw_trans == "rent") if raw_trans else False
+                
+    # 2. Try combined match first
+    combined = f"{prop_norm} للإيجار" if is_rent else f"{prop_norm} للبيع"
+    for k, v in CATEGORY_SYNONYMS.items():
+        if k in combined:
+            return v
+            
+    # 3. Fallback to direct mapping
+    for k, v in CATEGORY_SYNONYMS.items():
+        if k in prop_norm:
+            # If it's a generic map (like 201), and they want rent, force rent ID
+            if is_rent and v == 201: return 301 # apartments
+            if is_rent and v == 2015: return 3015
+            if is_rent and v == 2016: return 302 # studios
+            if is_rent and v == 202: return 313 # land
+            if is_rent and v == 2031: return 316 # villas to rural? (approx fallback)
+            if is_rent and v == 204: return 303 # shops
+            if is_rent and v == 2051: return 314 # farms
+            if is_rent and v == 2052: return 315 # chalets
+            if is_rent and v == 2061: return 316 # houses
+            return v
+            
+    return None
+        
+    prop_norm = raw_prop.lower()
+    
+    # 1. Resolve Transaction (Sale vs Rent)
+    is_rent = (raw_trans == "rent") if raw_trans else False
+                
+    # 2. Try combined match first
+    combined = f"{prop_norm} للإيجار" if is_rent else f"{prop_norm} للبيع"
+    for k, v in CATEGORY_SYNONYMS.items():
+        if k in combined:
+            return v
+            
+    # 3. Fallback to direct mapping
+    for k, v in CATEGORY_SYNONYMS.items():
+        if k in prop_norm:
+            # If it's a generic map (like 201), and they want rent, force rent ID
+            if is_rent and v == 201: return 301 # apartments
+            if is_rent and v == 2015: return 3015
+            if is_rent and v == 2016: return 302 # studios
+            if is_rent and v == 202: return 313 # land
+            if is_rent and v == 2031: return 316 # villas to rural? (approx fallback)
+            if is_rent and v == 204: return 303 # shops
+            if is_rent and v == 2051: return 314 # farms
+            if is_rent and v == 2052: return 315 # chalets
+            if is_rent and v == 2061: return 316 # houses
+            return v
+            
+    return None
         
     prop_norm = raw_prop.lower()
     trans_norm = raw_trans.lower() if raw_trans else ""
@@ -317,6 +374,16 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     
     # STEP 2: Python Engine Smart Matching
     
+    # 1. Require Transaction Type
+    if raw.get("transaction") is None:
+        return SmartSearchResponse(
+            intent=intent,
+            result_count=0,
+            filters_applied={},
+            suggestion="هل تبحث عن عقار للبيع أم للإيجار؟",
+            action_required="ask_transaction"
+        )
+        
     # Category
     category_id = map_category_smart(raw.get("property_type"), raw.get("transaction"))
     
@@ -527,6 +594,11 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         filters_applied=applied_filters,
         suggestion="نعتذر، لا يوجد أي عقارات مطابقة لبحثك حالياً."
     )
+
+
+
+
+
 
 
 
