@@ -239,24 +239,9 @@ def resolve_regions_smart(db: Session, raw_locations: list, city_id: int = None)
 def build_search_query(db: Session, filters: dict):
     query = db.query(models.AdSearchIndex)
     
-    # We optionally can join with Ad to check is_published, but for count from AdSearchIndex, it's usually already filtered in the index.
-    # Let's add the basic filters.
-
     if filters.get("category_id"):
-        # For rent categories specifically, we want to match exact or subcategories
-        cat_id = filters["category_id"]
-        if cat_id in [301, 302, 3101]:  # Subcategories of rent
-            query = query.filter(models.AdSearchIndex.category_id == cat_id)
-        elif cat_id in [2, 3]: # Parent categories
-            subcats = db.query(models.Category).filter(models.Category.parent_id == cat_id).all()
-            sub_ids = [s.id for s in subcats]
-            if sub_ids:
-                query = query.filter(models.AdSearchIndex.category_id.in_(sub_ids))
-            else:
-                query = query.filter(models.AdSearchIndex.category_id == cat_id)
-        else:
-            query = query.filter(models.AdSearchIndex.category_id == cat_id)
-            
+        query = query.filter(models.AdSearchIndex.category_id == filters["category_id"])
+        
     if filters.get("city_id"):
         query = query.filter(models.AdSearchIndex.city_id == filters["city_id"])
         
@@ -265,32 +250,32 @@ def build_search_query(db: Session, filters: dict):
         
     if filters.get("min_price"):
         query = query.filter(models.AdSearchIndex.price >= filters["min_price"])
+        
     if filters.get("max_price"):
         query = query.filter(models.AdSearchIndex.price <= filters["max_price"])
         
-    if filters.get("bedrooms"):
+    if filters.get("bedrooms") is not None:
         query = query.filter(models.AdSearchIndex.bedrooms >= filters["bedrooms"])
         
-    if filters.get("bathrooms"):
+    if filters.get("bathrooms") is not None:
         query = query.filter(models.AdSearchIndex.bathrooms >= filters["bathrooms"])
         
     if filters.get("furnished") is not None:
         query = query.filter(models.AdSearchIndex.furnished == filters["furnished"])
         
-    if filters.get("floor") is not None:
-        query = query.filter(models.AdSearchIndex.floor_number == filters["floor"])
-
+    if filters.get("floor_numbers"):
+        query = query.filter(models.AdSearchIndex.floor_number.in_(filters["floor_numbers"]))
+        
     if filters.get("min_area"):
         query = query.filter(models.AdSearchIndex.build_area >= filters["min_area"])
         
     if filters.get("max_area"):
         query = query.filter(models.AdSearchIndex.build_area <= filters["max_area"])
-
-    # Generic features matched against search_text
-    features = filters.get("features_list", [])
-    for feat in features:
-        if feat:
-            query = query.filter(models.AdSearchIndex.search_text.ilike(f"%{feat}%"))
+        
+    if filters.get("features_list"):
+        for feat in filters["features_list"]:
+            if feat:
+                query = query.filter(models.AdSearchIndex.search_text.ilike(f"%{feat}%"))
 
     return query
 
@@ -355,11 +340,23 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
                 furnished = v
                 break
                 
-    # Floor
-    floor = parse_floor(raw.get("floor_word"))
-    if raw.get("floor_number") is not None:
-        floor = raw.get("floor_number")
-    
+    # Floor handling
+    floor_words = raw.get("floor_words", [])
+    if isinstance(floor_words, str): floor_words = [floor_words]
+    # Fallback for old schema
+    if raw.get("floor_word") and raw.get("floor_word") not in floor_words:
+        floor_words.append(raw.get("floor_word"))
+        
+    floor_numbers = raw.get("floor_numbers", [])
+    if isinstance(floor_numbers, int): floor_numbers = [floor_numbers]
+    if raw.get("floor_number") is not None and raw.get("floor_number") not in floor_numbers:
+        floor_numbers.append(raw.get("floor_number"))
+        
+    for fw in floor_words:
+        parsed = parse_floor(fw)
+        if parsed is not None and parsed not in floor_numbers:
+            floor_numbers.append(parsed)
+            
     # Area
     min_area = raw.get("min_area_number")
     max_area = raw.get("max_area_number")
@@ -387,15 +384,13 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         features_list = [features_list]
         
     # Inject new text fields into features_list for full text search fallback
-    for item in [rent_period, building_age, interface] + nearby_locations + main_features + extra_features:
+    for item in [rent_period, building_age, interface] + nearby_locations + main_features + extra_features + floor_words:
         if item and item not in features_list:
             features_list.append(item)
             
     # Build Display Data for Frontend
     location_names = raw.get("locations", [])
     
-    # The frontend expects certain filters to be passed inside the 'tags' array with specific prefixes
-    # so that the bottom sheet can parse them and select the correct UI chips!
     tags = [feat for feat in features_list if feat in valid_tags]
     
     if raw.get("bedrooms_number") is not None:
@@ -411,8 +406,8 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     if rent_period:
         tags.append(f"rent_duration:{rent_period}")
         
-    if raw.get("floor_word"):
-        tags.append(f"floor:{raw.get('floor_word')}")
+    for fw in floor_words:
+        tags.append(f"floor:{fw}")
         
     if building_age:
         tags.append(f"age:{building_age}")
@@ -443,7 +438,7 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         "bedrooms": raw.get("bedrooms_number"),
         "bathrooms": raw.get("bathrooms_number"),
         "furnished": furnished,
-        "floor": floor,
+        "floor_numbers": floor_numbers,
         "min_area": min_area,
         "max_area": max_area,
         "rent_period": rent_period,
@@ -484,8 +479,8 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
             return SmartSearchResponse(intent=intent, result_count=count, filters_applied=applied_filters, suggestion="لم نجد نتائج بكل الميزات الإضافية المطلوبة، تم تجاهلها لعرض نتائج أقرب.")
 
     # 2. Remove floor
-    if floor is not None:
-        applied_filters["floor"] = None
+    if applied_filters.get("floor_numbers"):
+        applied_filters["floor_numbers"] = []
         query = build_search_query(db, applied_filters)
         count = query.count()
         if count > 0:
@@ -532,6 +527,10 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         filters_applied=applied_filters,
         suggestion="نعتذر، لا يوجد أي عقارات مطابقة لبحثك حالياً."
     )
+
+
+
+
 
 
 
