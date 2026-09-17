@@ -384,8 +384,42 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
             
     # Build Display Data for Frontend
     location_names = raw.get("locations", [])
+    
+    # The frontend expects certain filters to be passed inside the 'tags' array with specific prefixes
+    # so that the bottom sheet can parse them and select the correct UI chips!
     tags = [feat for feat in features_list if feat in valid_tags]
     
+    if raw.get("bedrooms_number") is not None:
+        tags.append(f"bedrooms:{raw['bedrooms_number']}")
+    
+    if raw.get("bathrooms_number") is not None:
+        tags.append(f"bathrooms:{raw['bathrooms_number']}")
+        
+    if furnished is not None:
+        # Based on typical UI expectations, they might match the Arabic text for furnished status
+        val = "نعم" if furnished else "لا"
+        tags.append(f"furnished:{val}")
+        
+    if rent_period:
+        tags.append(f"rent_duration:{rent_period}")
+        
+    if raw.get("floor_word"):
+        tags.append(f"floor:{raw.get('floor_word')}")
+        
+    if building_age:
+        tags.append(f"age:{building_age}")
+        
+    if interface:
+        tags.append(f"facade:{interface}")
+        
+    for nb in nearby_locations:
+        tags.append(f"nearby:{nb}")
+        
+    if min_area:
+        tags.append(f"min_area:{min_area}")
+    if max_area:
+        tags.append(f"max_area:{max_area}")
+        
     applied_filters = {
         "category_id": category_id,
         "city_id": city_id,
@@ -484,6 +518,7 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         filters_applied=applied_filters,
         suggestion="نعتذر، لا يوجد أي عقارات مطابقة لبحثك حالياً."
     )
+
 
 
 
