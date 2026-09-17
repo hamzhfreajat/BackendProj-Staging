@@ -31,7 +31,7 @@ class SmartSearchResponse(BaseModel):
     alternative_filters: Optional[dict] = None
     action_required: Optional[str] = None
 
-def extract_raw_data_via_deepseek(text: str) -> dict:
+def extract_raw_data_via_deepseek(text: str, valid_tags: list = None) -> dict:
     """
     Step 1: Uses DeepSeek to act purely as an NLP entity extractor.
     It does NOT attempt to match IDs or predefined lists. It just extracts raw Arabic words.
@@ -594,6 +594,7 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         filters_applied=applied_filters,
         suggestion="نعتذر، لا يوجد أي عقارات مطابقة لبحثك حالياً."
     )
+
 
 
 
