@@ -368,17 +368,26 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     rent_period = raw.get("rent_period")
     building_age = raw.get("building_age")
     interface = raw.get("interface")
+    
     nearby_locations = raw.get("nearby_locations", [])
     if isinstance(nearby_locations, str):
         nearby_locations = [nearby_locations]
+        
+    main_features = raw.get("main_features", [])
+    if isinstance(main_features, str):
+        main_features = [main_features]
+        
+    extra_features = raw.get("extra_features", [])
+    if isinstance(extra_features, str):
+        extra_features = [extra_features]
     
-    # Extra Features
+    # Extra Features fallback
     features_list = raw.get("features", [])
     if isinstance(features_list, str):
         features_list = [features_list]
         
     # Inject new text fields into features_list for full text search fallback
-    for item in [rent_period, building_age, interface] + nearby_locations:
+    for item in [rent_period, building_age, interface] + nearby_locations + main_features + extra_features:
         if item and item not in features_list:
             features_list.append(item)
             
@@ -396,7 +405,6 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         tags.append(f"bathrooms:{raw['bathrooms_number']}")
         
     if furnished is not None:
-        # Based on typical UI expectations, they might match the Arabic text for furnished status
         val = "نعم" if furnished else "لا"
         tags.append(f"furnished:{val}")
         
@@ -414,6 +422,12 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         
     for nb in nearby_locations:
         tags.append(f"nearby:{nb}")
+        
+    for mf in main_features:
+        tags.append(f"main_features:{mf}")
+        
+    for ef in extra_features:
+        tags.append(f"extra_features:{ef}")
         
     if min_area:
         tags.append(f"min_area:{min_area}")
@@ -518,6 +532,8 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         filters_applied=applied_filters,
         suggestion="نعتذر، لا يوجد أي عقارات مطابقة لبحثك حالياً."
     )
+
+
 
 
 
