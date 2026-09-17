@@ -340,7 +340,12 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     
     # Price
     min_price = parse_price(raw.get("min_price_word"))
+    if raw.get("min_price_number") is not None:
+        min_price = raw.get("min_price_number")
+        
     max_price = parse_price(raw.get("max_price_word"))
+    if raw.get("max_price_number") is not None:
+        max_price = raw.get("max_price_number")
     
     # Furnishing
     furnished = None
@@ -352,48 +357,51 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
                 
     # Floor
     floor = parse_floor(raw.get("floor_word"))
+    if raw.get("floor_number") is not None:
+        floor = raw.get("floor_number")
     
     # Area
     min_area = raw.get("min_area_number")
     max_area = raw.get("max_area_number")
+    
+    # New Fields
+    rent_period = raw.get("rent_period")
+    building_age = raw.get("building_age")
+    interface = raw.get("interface")
+    nearby_locations = raw.get("nearby_locations", [])
+    if isinstance(nearby_locations, str):
+        nearby_locations = [nearby_locations]
     
     # Extra Features
     features_list = raw.get("features", [])
     if isinstance(features_list, str):
         features_list = [features_list]
         
+    # Inject new text fields into features_list for full text search fallback
+    for item in [rent_period, building_age, interface] + nearby_locations:
+        if item and item not in features_list:
+            features_list.append(item)
+            
     # Build Display Data for Frontend
-    location_names = []
-    if city_id:
-        city = db.query(models.City).filter(models.City.id == city_id).first()
-        if city: location_names.append(city.name_ar)
-        
-    if region_ids:
-        regions = db.query(models.Region).filter(models.Region.id.in_(region_ids)).all()
-        for r in regions: location_names.append(r.name_ar)
-        
-    tags = []
-    bedrooms = raw.get("bedrooms_number")
-    if bedrooms is not None: tags.append(f"bedrooms:{bedrooms}")
-    if furnished is True: tags.append("furnished:Ù…ÙØ±ÙˆØ´Ø©")
-    elif furnished is False: tags.append("furnished:ØºÙŠØ± Ù…ÙØ±ÙˆØ´Ø©")
+    location_names = raw.get("locations", [])
+    tags = [feat for feat in features_list if feat in valid_tags]
     
-    # Append generic features as tags so they display in the UI
-    for f in features_list:
-        tags.append(f)
-
     applied_filters = {
         "category_id": category_id,
         "city_id": city_id,
         "region_ids": region_ids,
         "min_price": min_price,
         "max_price": max_price,
-        "bedrooms": bedrooms,
+        "bedrooms": raw.get("bedrooms_number"),
         "bathrooms": raw.get("bathrooms_number"),
         "furnished": furnished,
         "floor": floor,
         "min_area": min_area,
         "max_area": max_area,
+        "rent_period": rent_period,
+        "building_age": building_age,
+        "interface": interface,
+        "nearby_locations": nearby_locations,
         "features_list": features_list,
         "category_name": raw.get("property_type"),
         "location_names": location_names,
@@ -476,4 +484,6 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         filters_applied=applied_filters,
         suggestion="نعتذر، لا يوجد أي عقارات مطابقة لبحثك حالياً."
     )
+
+
 
