@@ -237,13 +237,11 @@ def resolve_regions_smart(db: Session, raw_locations: list, city_id: int = None)
     return list(set(found_region_ids)), not_found_names, inferred_city
 
 def build_search_query(db: Session, filters: dict):
-    q = db.query(models.Ad).join(models.AdSearchIndex, models.Ad.id == models.AdSearchIndex.ad_id)
-    
-    q = q.filter(
-        models.Ad.is_published == True,
-        models.Ad.is_paused == False,
     query = db.query(models.AdSearchIndex)
     
+    # We optionally can join with Ad to check is_published, but for count from AdSearchIndex, it's usually already filtered in the index.
+    # Let's add the basic filters.
+
     if filters.get("category_id"):
         # For rent categories specifically, we want to match exact or subcategories
         cat_id = filters["category_id"]
@@ -478,32 +476,4 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         filters_applied=applied_filters,
         suggestion="نعتذر، لا يوجد أي عقارات مطابقة لبحثك حالياً."
     )
-        if current_val:
-            temp_val = alternative_filters[filter_key]
-            alternative_filters[filter_key] = [] if filter_key == "region_ids" else None
-            
-            fallback_query = build_search_query(db, alternative_filters)
-            alternative_count = fallback_query.count()
-            
-            if alternative_count > 0:
-                removed_filter_name = filter_key
-                break
-            alternative_filters[filter_key] = temp_val
-                
-    if alternative_count > 0:
-        sugg = generate_fallback_suggestion(applied_filters, alternative_count, removed_filter_name)
-        if suggestion: sugg = suggestion + "\n\n" + sugg
-        suggestion = sugg
-    else:
-        suggestion = "Ø¹Ø°Ø±Ø§Ù‹ØŒ Ù„Ù… Ù†ØªÙ…ÙƒÙ† Ù…Ù† Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø£ÙŠ Ø¹Ù‚Ø§Ø± Ù…Ø·Ø§Ø¨Ù‚. Ø¬Ø±Ø¨ ØªØºÙŠÙŠØ± ÙØ¦Ø© Ø§Ù„Ø¹Ù‚Ø§Ø± Ø£Ùˆ Ø§Ù„Ù…Ø¯ÙŠÙ†Ø©."
-        
-    return SmartSearchResponse(
-        intent=intent,
-        result_count=0,
-        filters_applied=applied_filters,
-        suggestion=suggestion,
-        alternative_count=alternative_count,
-        alternative_filters=alternative_filters
-    )
-
 
