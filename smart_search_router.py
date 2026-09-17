@@ -59,7 +59,7 @@ Output JSON format:
   "intent": "search" | "post_ad",
   "raw_filters": {
     "property_type": "Extract property type (e.g. Ø´Ù‚Ø©, ÙÙŠÙ„Ø§)",
-    "transaction": "Extract transaction type (e.g. Ù„Ù„Ø¨ÙŠØ¹, Ø§ÙŠØ¬Ø§Ø±)",
+    "transaction": "MUST be \'sale\' if buying/selling, \'rent\' if renting, or null if the user did not specify.",
     "locations": ["Array of location names"],
     "bedrooms_number": integer or null,
     "bathrooms_number": integer or null,
