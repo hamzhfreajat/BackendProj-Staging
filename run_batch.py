@@ -1,13 +1,22 @@
 from market_analysis_service import MarketAnalysisService
 from database import SessionLocal
+import models
 
 def main():
-    print('Starting market analysis batch for NATIVE (Organic) ads only...')
+    print('Connecting to database via tunnel...')
     db = SessionLocal()
     try:
-        # Full scan (incremental=False), actual save (dry_run=False)
+        # Check connection
+        test = db.query(models.Ad).first()
+        if not test:
+            print("DB Connected but no ads found.")
+            return
+            
+        print('Connection successful! Starting market analysis batch for NATIVE (Organic) ads only...')
         MarketAnalysisService.run_batch(db, incremental=False, dry_run=False)
         print('Finished!')
+    except Exception as e:
+        print(f"Error connecting: {e}")
     finally:
         db.close()
 
