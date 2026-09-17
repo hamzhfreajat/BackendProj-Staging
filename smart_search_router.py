@@ -315,8 +315,16 @@ def parse_floor(floor_word: str):
 
 @smart_search_router.post("/api/smart-voice-search", response_model=SmartSearchResponse)
 def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db)):
+    # Fetch valid tags from DB for real estate (cats 2 and 3, and maybe others, but we'll fetch all or just rely on a subset)
+    # Fetching all tags is usually fast if there aren't thousands.
+    try:
+        valid_tags_objs = db.query(models.Tag).all()
+        valid_tags = [t.name for t in valid_tags_objs if t.name]
+    except Exception:
+        valid_tags = []
+
     # STEP 1: AI Entity Extraction
-    ai_response = extract_raw_data_via_deepseek(request.text)
+    ai_response = extract_raw_data_via_deepseek(request.text, valid_tags=valid_tags)
     
     intent = ai_response.get("intent", "search")
     if intent != "search":
@@ -497,3 +505,5 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         alternative_count=alternative_count,
         alternative_filters=alternative_filters
     )
+
+
