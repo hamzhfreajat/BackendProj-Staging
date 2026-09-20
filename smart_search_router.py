@@ -571,7 +571,7 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
             return SmartSearchResponse(intent=intent, result_count=count, filters_applied=applied_filters, suggestion=f"لم نجد نتائج بسعر {max_price}، فقمنا برفع الميزانية لغاية {applied_filters['max_price']}")
             
     # 5. Remove Bedrooms
-    if bedrooms:
+    if applied_filters.get("bedrooms") is not None:
         applied_filters["bedrooms"] = None
         applied_filters["tags"] = [t for t in applied_filters["tags"] if not t.startswith("bedrooms")]
         query = build_search_query(db, applied_filters)
