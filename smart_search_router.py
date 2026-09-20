@@ -283,7 +283,9 @@ def resolve_regions_smart(db: Session, raw_locations: list, city_id: int = None)
     return list(set(found_region_ids)), not_found_names, inferred_city
 
 def build_search_query(db: Session, filters: dict):
+    from sqlalchemy import or_
     query = db.query(models.AdSearchIndex)
+    joined_ad = False
     
     if filters.get("category_id"):
         query = query.filter(models.AdSearchIndex.category_id == filters["category_id"])
@@ -291,7 +293,15 @@ def build_search_query(db: Session, filters: dict):
     if filters.get("city_id"):
         query = query.filter(models.AdSearchIndex.city_id == filters["city_id"])
         
-    if filters.get("region_ids"):
+    if filters.get("location_names"):
+        query = query.join(models.Ad, models.AdSearchIndex.ad_id == models.Ad.id)
+        joined_ad = True
+        loc_conditions = [models.Ad.location.ilike(f"%{loc}%") for loc in filters["location_names"]]
+        if filters.get("region_ids"):
+            query = query.filter(or_(models.AdSearchIndex.region_id.in_(filters["region_ids"]), *loc_conditions))
+        else:
+            query = query.filter(or_(*loc_conditions))
+    elif filters.get("region_ids"):
         query = query.filter(models.AdSearchIndex.region_id.in_(filters["region_ids"]))
         
     if filters.get("min_price"):
