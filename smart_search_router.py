@@ -388,7 +388,7 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     category_id = map_category_smart(raw.get("property_type"), raw.get("transaction"))
     
     # Locations
-    region_ids, not_found_regions, city_id = resolve_regions_smart(db, raw.get("locations", []))
+    region_ids, not_found_regions, city_id = resolve_regions_smart(db, raw.get("locations") or [])
     
     # Price
     min_price = parse_price(raw.get("min_price_word"))
@@ -403,18 +403,18 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     furnished = None
     if raw.get("furnishing_word"):
         for k, v in FURNISHING_SYNONYMS.items():
-            if k in raw["furnishing_word"]:
+            if k in str(raw["furnishing_word"]):
                 furnished = v
                 break
                 
     # Floor handling
-    floor_words = raw.get("floor_words", [])
+    floor_words = raw.get("floor_words") or []
     if isinstance(floor_words, str): floor_words = [floor_words]
     # Fallback for old schema
     if raw.get("floor_word") and raw.get("floor_word") not in floor_words:
         floor_words.append(raw.get("floor_word"))
         
-    floor_numbers = raw.get("floor_numbers", [])
+    floor_numbers = raw.get("floor_numbers") or []
     if isinstance(floor_numbers, int): floor_numbers = [floor_numbers]
     if raw.get("floor_number") is not None and raw.get("floor_number") not in floor_numbers:
         floor_numbers.append(raw.get("floor_number"))
@@ -433,20 +433,20 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     building_age = raw.get("building_age")
     interface = raw.get("interface")
     
-    nearby_locations = raw.get("nearby_locations", [])
+    nearby_locations = raw.get("nearby_locations") or []
     if isinstance(nearby_locations, str):
         nearby_locations = [nearby_locations]
         
-    main_features = raw.get("main_features", [])
+    main_features = raw.get("main_features") or []
     if isinstance(main_features, str):
         main_features = [main_features]
         
-    extra_features = raw.get("extra_features", [])
+    extra_features = raw.get("extra_features") or []
     if isinstance(extra_features, str):
         extra_features = [extra_features]
     
     # Extra Features fallback
-    features_list = raw.get("features", [])
+    features_list = raw.get("features") or []
     if isinstance(features_list, str):
         features_list = [features_list]
         
@@ -456,7 +456,7 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
             features_list.append(item)
             
     # Build Display Data for Frontend
-    location_names = raw.get("locations", [])
+    location_names = raw.get("locations") or []
     
     tags = [feat for feat in features_list if feat in valid_tags]
     
