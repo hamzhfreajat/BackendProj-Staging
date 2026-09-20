@@ -184,7 +184,30 @@ def generate_fallback_suggestion(original_filters: dict, alternative_count: int,
             
     return None
 
+ZONE_REGIONS = {
+    "عمان الغربية": ["خلدا", "عبدون", "الصويفية", "دير غبار", "ام اذينة", "تلاع العلي", "الشميساني", "الرابية", "دابوق", "ام السماق", "الجبيهة"],
+    "غرب عمان": ["خلدا", "عبدون", "الصويفية", "دير غبار", "ام اذينة", "تلاع العلي", "الشميساني", "الرابية", "دابوق", "ام السماق", "الجبيهة"],
+    "عمان الشرقية": ["ماركا", "الأشرفية", "جبل التاج", "الوحدات", "القويسمة", "أبو علندا", "جبل النصر", "الهاشمي", "جبل الجوفة", "النزهة", "ضاحية الأقصى"],
+    "شرق عمان": ["ماركا", "الأشرفية", "جبل التاج", "الوحدات", "القويسمة", "أبو علندا", "جبل النصر", "الهاشمي", "جبل الجوفة", "النزهة", "ضاحية الأقصى"],
+    "شمال عمان": ["ابو نصير", "شفا بدران", "الجبيهة", "طارق", "صويلح", "ياجوز"],
+    "جنوب عمان": ["خريبة السوق", "جاوا", "اليادودة", "مرج الحمام", "ناعور"],
+}
+
 def resolve_regions_smart(db: Session, raw_locations: list, city_id: int = None) -> tuple:
+    if raw_locations:
+        expanded = []
+        for loc in raw_locations:
+            loc_clean = loc.strip()
+            matched = False
+            for zname, zregs in ZONE_REGIONS.items():
+                if zname in loc_clean or loc_clean in zname:
+                    expanded.extend(zregs)
+                    matched = True
+                    break
+            if not matched:
+                expanded.append(loc_clean)
+        raw_locations = list(set(expanded))
+
     """
     Step 2: Python Matcher Engine.
     Uses fuzzy matching against normalized DB values to find regions.
