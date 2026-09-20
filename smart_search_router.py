@@ -63,7 +63,7 @@ Output JSON format:
   "intent": "search" | "post_ad",
   "raw_filters": {{
     "category_id": integer ID of the best matching category from the list above, or null if unknown,
-    "locations": ["Array of location names"],
+    "locations": ["Extract ALL specific location names mentioned exactly as written (e.g. ????, ??????, ???????, ?????)"],
     "bedrooms_number": integer or null,
     "bathrooms_number": integer or null,
     "furnishing_word": "Extract word indicating furniture",
@@ -72,7 +72,7 @@ Output JSON format:
     "floor_word": "Extract floor mentioned",
     "min_area_number": integer or null,
     "max_area_number": integer or null,
-    "features": ["Extract any extra features/amenities as a list of strings"]
+    "features": ["Extract EXACTLY the features mentioned in the text. Do NOT guess or infer features that are not explicitly stated."]
   }}
 }}"""
 
@@ -82,7 +82,8 @@ Output JSON format:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": text}
         ],
-        "response_format": {"type": "json_object"}
+        "response_format": {"type": "json_object"},
+        "temperature": 0.0
     }
 
     try:
