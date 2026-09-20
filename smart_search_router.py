@@ -64,14 +64,10 @@ Output JSON format:
   "raw_filters": {{
     "category_id": integer ID of the best matching category from the list above, or null if unknown,
     "locations": ["Extract ALL location names, regions, or cities mentioned in the text as a list of strings"],
-    "bedrooms_number": integer or null,
-    "bathrooms_number": integer or null,
     "furnishing_word": "Extract word indicating furniture",
     "max_price_word": "Extract text indicating max price",
     "min_price_word": "Extract text indicating min price",
     "floor_word": "Extract floor mentioned",
-    "min_area_number": integer or null,
-    "max_area_number": integer or null,
     "features": ["Extract EXACTLY the features mentioned in the text. Do NOT guess or infer features that are not explicitly stated."]
   }}
 }}"""
@@ -382,12 +378,7 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     
     # Price
     min_price = parse_price(raw.get("min_price_word"))
-    if raw.get("min_price_number") is not None:
-        min_price = raw.get("min_price_number")
-        
     max_price = parse_price(raw.get("max_price_word"))
-    if raw.get("max_price_number") is not None:
-        max_price = raw.get("max_price_number")
     
     # Furnishing
     furnished = None
