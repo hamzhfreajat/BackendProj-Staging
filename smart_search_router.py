@@ -361,6 +361,7 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         categories_str = ""
 
     # STEP 1: AI Entity Extraction
+    print("CATEGORIES SENT TO AI:", categories_str)
     ai_response = extract_raw_data_via_deepseek(request.text, categories_str=categories_str)
     
     intent = ai_response.get("intent", "search")
