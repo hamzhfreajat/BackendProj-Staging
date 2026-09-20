@@ -52,8 +52,8 @@ Do NOT guess or correct anything, except for category_id which must be selected 
 You MUST choose the most specific end-level category from the list. Do NOT choose broad/parent categories.
 
 Intent mapping:
-- search: Looking for properties
-- post_ad: Wants to sell or rent out their own property
+- search: Looking for properties (e.g. "????? ??? ?????", "??? ??????", "?????")
+- post_ad: Wants to sell or rent out their own property (e.g. "???? ??? ?????", "??? ???? ????")
 
 Available Categories (End-level only):
 {categories_str}
