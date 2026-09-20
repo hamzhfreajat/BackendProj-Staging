@@ -63,7 +63,7 @@ Output JSON format:
   "intent": "search" | "post_ad",
   "raw_filters": {{
     "category_id": integer ID of the best matching category from the list above, or null if unknown,
-    "locations": ["Extract ALL specific location names mentioned exactly as written (e.g. ????, ??????, ???????, ?????)"],
+    "locations": ["Extract ALL location names, regions, or cities mentioned in the text as a list of strings"],
     "bedrooms_number": integer or null,
     "bathrooms_number": integer or null,
     "furnishing_word": "Extract word indicating furniture",
