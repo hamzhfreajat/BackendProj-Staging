@@ -31,15 +31,12 @@ class SmartSearchResponse(BaseModel):
     alternative_filters: Optional[dict] = None
     action_required: Optional[str] = None
 
-def extract_raw_data_via_deepseek(text: str, valid_tags: list = None) -> dict:
-    """
-    Step 1: Uses DeepSeek to act purely as an NLP entity extractor.
-    It does NOT attempt to match IDs or predefined lists. It just extracts raw Arabic words.
-    """
+def extract_raw_data_via_deepseek(text: str, categories_str: str = "") -> dict:
     url = "https://api.deepseek.com/chat/completions"
+    import os
+    from fastapi import HTTPException
     api_key = os.getenv("DEEPSEEK_API_KEY")
     if not api_key:
-        logger.error("DEEPSEEK_API_KEY is not set.")
         raise HTTPException(status_code=500, detail="Search service configuration error.")
 
     headers = {
@@ -47,31 +44,33 @@ def extract_raw_data_via_deepseek(text: str, valid_tags: list = None) -> dict:
         "Authorization": f"Bearer {api_key}"
     }
 
-    system_prompt = """You are a helpful NLP assistant. Extract entities from Jordanian real estate search queries.
-Do NOT guess or correct anything. Output exactly what the user said in the specified JSON fields.
+    system_prompt = f"""You are a helpful NLP assistant. Extract entities from Jordanian real estate search queries.
+Do NOT guess or correct anything, except for category_id which must be selected from the provided list.
 
 Intent mapping:
-- "search": Looking for properties
-- "post_ad": Wants to sell or rent out their own property
+- search: Looking for properties
+- post_ad: Wants to sell or rent out their own property
+
+Available Categories:
+{categories_str}
 
 Output JSON format:
-{
+{{
   "intent": "search" | "post_ad",
-  "raw_filters": {
-    "property_type": "Extract property type (e.g. Ø´Ù‚Ø©, ÙÙŠÙ„Ø§)",
-    "transaction": "MUST be \'sale\' if buying/selling, \'rent\' if renting, or null if the user did not specify.",
+  "raw_filters": {{
+    "category_id": integer ID of the best matching category from the list above, or null if unknown,
     "locations": ["Array of location names"],
     "bedrooms_number": integer or null,
     "bathrooms_number": integer or null,
-    "furnishing_word": "Extract word indicating furniture (e.g. Ù…Ø¹Ø´ÙŠØ©, ÙØ§Ø¶ÙŠØ©)",
+    "furnishing_word": "Extract word indicating furniture",
     "max_price_word": "Extract text indicating max price",
     "min_price_word": "Extract text indicating min price",
-    "floor_word": "Extract floor mentioned (e.g. Ø§Ø±Ø¶ÙŠ, ØªØ³ÙˆÙŠØ©)",
-    "min_area_number": integer or null (e.g. from 'ÙÙˆÙ‚ 120 Ù…ØªØ±' -> 120),
+    "floor_word": "Extract floor mentioned",
+    "min_area_number": integer or null,
     "max_area_number": integer or null,
-    "features": ["Extract any extra features/amenities as a list of strings, e.g. 'ÙƒØ±Ø§Ø¬', 'Ø­Ø¯ÙŠÙ‚Ø©', 'Ø¨Ù„ÙƒÙˆÙ†Ø©', 'Ù…ØµØ¹Ø¯', 'Ù…Ù† Ø§Ù„Ù…Ø§Ù„Ùƒ Ù…Ø¨Ø§Ø´Ø±Ø©', 'Ø¹Ù‚Ø¯ Ø³Ù†ÙˆÙŠ'"]
-  }
-}"""
+    "features": ["Extract any extra features/amenities as a list of strings"]
+  }}
+}}"""
 
     data = {
         "model": "deepseek-chat",
@@ -125,27 +124,7 @@ def generate_fallback_suggestion(original_filters: dict, alternative_count: int,
     except Exception as e:
         return "Ù„Ø§ ØªÙˆØ¬Ø¯ Ù†ØªØ§Ø¦Ø¬ Ù…Ø·Ø§Ø¨Ù‚Ø©ØŒ Ø¬Ø±Ø¨ ØªØºÙŠÙŠØ± Ø¨Ø¹Ø¶ Ø§Ù„ÙÙ„Ø§ØªØ± Ù„Ù„Ø­ØµÙˆÙ„ Ø¹Ù„Ù‰ Ù†ØªØ§Ø¦Ø¬."
 
-def map_category_smart(raw_prop: str, raw_trans: str) -> Optional[int]:
-    if not raw_prop: return None
-    prop_norm = raw_prop.lower()
-    is_rent = (raw_trans == 'rent') if raw_trans else False
-    base_v = None
-    for k, v in CATEGORY_SYNONYMS.items():
-        if k in prop_norm:
-            base_v = v
-            break
-    if base_v is None: return None
-    if is_rent:
-        if base_v == 201: return 301
-        if base_v == 2015: return 3015
-        if base_v == 2016: return 302
-        if base_v == 202: return 313
-        if base_v == 2031: return 316
-        if base_v == 204: return 303
-        if base_v == 2051: return 314
-        if base_v == 2052: return 315
-        if base_v == 2061: return 316
-    return base_v
+
         
     prop_norm = raw_prop.lower()
     
@@ -373,18 +352,7 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     
     # STEP 2: Python Engine Smart Matching
     
-    # 1. Require Transaction Type
-    if raw.get("transaction") is None:
-        return SmartSearchResponse(
-            intent=intent,
-            result_count=0,
-            filters_applied={},
-            suggestion="هل تبحث عن عقار للبيع أم للإيجار؟",
-            action_required="ask_transaction"
-        )
-        
-    # Category
-    category_id = map_category_smart(raw.get("property_type"), raw.get("transaction"))
+    category_id = raw.get("category_id")
     
     # Locations
     region_ids, not_found_regions, city_id = resolve_regions_smart(db, raw.get("locations") or [])
