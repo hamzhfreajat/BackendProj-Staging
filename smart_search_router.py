@@ -370,7 +370,7 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     if intent != "search":
         return SmartSearchResponse(intent=intent, result_count=0, filters_applied={})
         
-    raw = ai_response.get("raw_filters", {})
+    raw = ai_response.get("raw_filters") or {}
     
     # STEP 2: Python Engine Smart Matching
     
