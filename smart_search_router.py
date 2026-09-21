@@ -420,13 +420,6 @@ def parse_floor(floor_word: str):
 
 @smart_search_router.post("/api/smart-voice-search", response_model=SmartSearchResponse)
 def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db)):
-    # Fetch valid tags
-    try:
-        valid_tags_objs = db.query(models.Tag).all()
-        valid_tags = [t.name for t in valid_tags_objs if t.name]
-    except Exception:
-        valid_tags = []
-
     # Fetch ONLY leaf categories under real estate (IDs 2 and 3)
     try:
         all_cats = db.query(models.Category).all()
