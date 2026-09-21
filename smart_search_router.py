@@ -65,22 +65,22 @@ Output JSON format:
     "category_id": integer ID of the best matching category from the list above, or null if unknown,
     "property_type": "Extract the property type mentioned (e.g. شقة, فيلا, سيارة), or null",
     "locations": ["Extract ALL location names, regions, or cities mentioned in the text as a list of strings"],
-    "nearby_locations": ["Extract ALL nearby landmarks or locations mentioned in the text as a list of strings"],
-    "furnishing_word": "Extract word indicating furniture (e.g. مفروشة, فارغة), or null",
+    "nearby_locations": ["Choose from: بنك / صراف آلي, دراي كلين, سوبر ماركت, صالة رياضية / جيم, صيدلية, محطة باصات, مدرسة, مستشفى, مسجد, مطعم. If not mentioned, return empty list."],
+    "furnishing_word": "Choose ONE from: مفروشة, غير مفروشة, مفروش جزئياً. If not mentioned, return null.",
     "max_price_word": "Extract text indicating max price",
     "min_price_word": "Extract text indicating min price",
     "min_area_number": "Extract the integer minimum area in square meters mentioned, or null",
     "max_area_number": "Extract the integer maximum area in square meters mentioned, or null",
-    "floor_words": ["Extract all floor words mentioned (e.g. أرضي, أول, ثاني) as a list"],
+    "floor_words": ["Choose from: طابق التسوية, طابق شبه أرضي, الطابق الأرضي, طابق أخير, روف, طابق أخير مع روف. If not mentioned, return empty list."],
     "floor_numbers": ["Extract all floor integer numbers mentioned as a list of ints"],
     "bedrooms_number": "Extract the integer number of bedrooms mentioned, or null if not mentioned",
     "bathrooms_number": "Extract the integer number of bathrooms mentioned, or null if not mentioned",
-    "rent_period": "Extract the rent period if mentioned (e.g. شهري, سنوي, يومي), or null",
-    "building_age": "Extract the building age if mentioned (e.g. جديد, قيد الإنشاء, مستعمل), or null",
-    "interface": "Extract the interface/direction if mentioned (e.g. شمالي, شرقي), or null",
-    "main_features": ["Extract ALL main features mentioned (e.g. بلكونة, كراج, مصعد) as a list of strings"],
-    "extra_features": ["Extract ALL extra features mentioned (e.g. مسبح, حديقة) as a list of strings"],
-    "features": ["Extract EXACTLY the features mentioned in the text. Do NOT guess or infer features that are not explicitly stated."]
+    "rent_period": "Choose ONE from: يومي, أسبوعي, شهري, كل 3 أشهر, كل أربع أشهر, كل 5 أشهر, كل 6 أشهر, سنوي. If not mentioned, return null.",
+    "building_age": "Choose ONE from: 0 - 11 شهر, 1 - 5 سنوات, 6 - 9 سنوات, 10 - 19 سنوات, +20 سنة. If not mentioned, return null.",
+    "interface": "Choose ONE from: شمالية, جنوبية, شرقية, غربية, شمالية شرقية, شمالية غربية, جنوبية شرقية, جنوبية غربية. If not mentioned, return null.",
+    "main_features": ["Choose from: تكييف مركزي, تدفئة, شرفة / بلكونة, غرفة خادمة, غرفة غسيل, خزائن حائط, مسبح خاص, سخان شمسي, زجاج شبابيك مزدوج. If not mentioned, return empty list."],
+    "extra_features": ["Choose from: يوجد مصعد, موقف سيارات, حارس / أمن وحماية, نظام كهرباء احتياطي للطوارئ, انتركم, حديقة, كراج تفك, منطقة شواء, بركة سباحة. If not mentioned, return empty list."],
+    "features": ["Extract any other explicitly stated features that do not fit in the lists above."]
   }}
 }}"""
 
@@ -460,9 +460,53 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     # STEP 2: Python Engine Smart Matching
     
     category_id = raw.get("category_id")
+    raw_locations = raw.get("locations") or []
+    
+    WEST_AMMAN_REGIONS = [
+        'ابو نصير', 'الجبيهة', 'الدوار الثالث', 'الدوار الرابع', 'الدوار الخامس', 'الدوار السادس', 
+        'الدوار السابع', 'الدوار الثامن', 'الروابي', 'الصويفية', 'العبدلي', 'المدينة الرياضية', 
+        'ام اذينة', 'ام اذينة الشرقي', 'ام اذينة الغربي', 'ام السماق', 'تلاع العلي', 
+        'تلاع العلي الشمالي', 'تلاع العلي الشرقي', 'دير غبار', 'شارع المدينة', 
+        'شارع المدينة المنورة', 'شارع مكة', 'شارع الجامعة', 'ضاحية الامير راشد', 
+        'ضاحية الرشيد', 'ضاحية الحسين', 'ضاحية النخيل', 'ضاحية الروضة', 'وادي صقرة', 
+        'دوار الداخلية', 'دوار الواحة', 'دوار الكيلو', 'بزنس بارك', 'طلوع نيفين', 
+        'البحاث', 'البيادر', 'الجاردنز', 'الجندويل', 'الحمر', 'الديار', 'الرابية', 
+        'الرضوان', 'الرونق', 'السهل', 'الصناعة', 'الظهير', 'الكرسي', 'الكمالية', 
+        'أم الأسود', 'بدر الجديدة', 'خلدا', 'دابوق', 'شفا بدران', 'شميساني', 
+        'صويلح', 'طريق المطار', 'طريق المطار - جسر ديونز', 'عبدون', 'عبدون الجنوبي', 
+        'عبدون الشمالي', 'عراق الامير', 'مرج الحمام', 'وادي السير', 'حي البركة', 
+        'حي الخالدين', 'حي الرحمانية', 'حي الصالحين', 'حي الصحابة', 'رجم عميش'
+    ]
+
+    EAST_AMMAN_REGIONS = [
+        'ابو علندا', 'البنيات', 'المناره', 'ضاحية الامير حسن', 'ضاحية الحاج حسن', 
+        'ضاحية الاستقلال', 'ضاحية الاقصى', 'وادي السرور', 'وادي الرمم', 'وادي الحدادة', 
+        'وادي العش', 'أم الحيران', 'النويجيس', 'جبل القلعة', 'جبل الأشرفية', 'جبل التاج', 
+        'جبل الجوفة', 'جبل الحسين', 'جبل الزهور', 'جبل المريخ', 'جبل النزهة', 'جبل النصر', 
+        'جبل النظيف', 'جبل عمان', 'دوار المشاغل', 'شارع الحزام', 'عين غزال', 'البيضاء', 
+        'الجويدة', 'الحرّيّة', 'الخزنة', 'الخشافية', 'الدوار الأول', 'الدوار الثاني', 
+        'الذراع', 'الربوة', 'الرجيب', 'الرقيم', 'القصور', 'القويسمة', 'الماضونة', 
+        'المحطة', 'المستندة', 'المقابلين', 'الموقر', 'المغيرات', 'الهاشمي الجنوبي', 
+        'الهاشمي الشمالي', 'الوحدات', 'اليادودة', 'الياسمين', 'اليرموك', 'ام نوارة', 
+        'أم قصير', 'بدر', 'بسمان', 'جاوا', 'حطين', 'حي نزال', 'حي عدن', 'خربة السوق', 
+        'راس العين', 'سحاب', 'صالحية العابد', 'طبربور', 'طلوع المصدار', 'عرجان', 
+        'ماركا', 'ماركا الشمالية', 'ماركا الجنوبية', 'وسط البلد', 'ياجوز', 'الكوم الشرقي'
+    ]
+    
+    expanded_locations = []
+    for loc in raw_locations:
+        loc_clean = loc.replace('ة', 'ه').replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا').strip()
+        if loc_clean in ["عمان الغربيه", "غرب عمان", "عمان غربيه", "عمان الغربية", "عمان غربية"]:
+            expanded_locations.extend(WEST_AMMAN_REGIONS)
+        elif loc_clean in ["عمان الشرقيه", "شرق عمان", "عمان شرقيه", "عمان الشرقية", "عمان شرقية"]:
+            expanded_locations.extend(EAST_AMMAN_REGIONS)
+        else:
+            expanded_locations.append(loc)
+            
+    raw["locations"] = list(dict.fromkeys(expanded_locations)) # remove duplicates
     
     # Locations
-    region_ids, not_found_regions, city_id = resolve_regions_smart(db, raw.get("locations") or [])
+    region_ids, not_found_regions, city_id = resolve_regions_smart(db, raw["locations"])
     
     # Price
     min_price = parse_price(raw.get("min_price_word"))
