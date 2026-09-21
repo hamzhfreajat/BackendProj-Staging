@@ -570,7 +570,7 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     # Build Display Data for Frontend
     location_names = raw.get("locations") or []
     
-    tags = [feat for feat in features_list if feat in valid_tags]
+    tags = []
     
     if raw.get("bedrooms_number") is not None:
         tags.append(f"bedrooms:{raw['bedrooms_number']}")
