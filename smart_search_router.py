@@ -1,4 +1,4 @@
-﻿import os
+import os
 import json
 import logging
 import urllib.request
@@ -671,7 +671,7 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
 
 
 
-@router.get("/api/debug-cats")
+@smart_search_router.get("/api/debug-cats")
 def debug_cats(db: Session = Depends(get_db)):
     try:
         all_cats = db.query(models.Category).all()
