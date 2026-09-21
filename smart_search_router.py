@@ -553,6 +553,16 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     if max_area:
         tags.append(f"max_area:{max_area}")
         
+    # Resolve actual category name from DB
+    resolved_category_name = raw.get("property_type")
+    if category_id is not None:
+        try:
+            cat_obj = db.query(models.Category).filter(models.Category.id == category_id).first()
+            if cat_obj and cat_obj.name:
+                resolved_category_name = cat_obj.name
+        except Exception:
+            pass
+
     applied_filters = {
         "category_id": category_id,
         "city_id": city_id,
@@ -570,7 +580,7 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         "interface": interface,
         "nearby_locations": nearby_locations,
         "features_list": features_list,
-        "category_name": raw.get("property_type"),
+        "category_name": resolved_category_name,
         "location_names": location_names,
         "tags": tags,
         "not_found_regions": not_found_regions
