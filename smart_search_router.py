@@ -52,8 +52,8 @@ Do NOT guess or correct anything, except for category_id which must be selected 
 You MUST choose the most specific end-level category from the list. Do NOT choose broad/parent categories.
 
 Intent mapping:
-- search: Looking for properties (e.g. "????? ??? ?????", "??? ??????", "?????")
-- post_ad: Wants to sell or rent out their own property (e.g. "???? ??? ?????", "??? ???? ????")
+- search: Looking for properties (e.g. "شقة للايجار", "بدي استأجر", "عقارات")
+- post_ad: Wants to sell or rent out their own property (e.g. "عندي شقة للبيع", "بدي انزل اعلان")
 
 Available Categories (End-level only):
 {categories_str}
@@ -96,7 +96,7 @@ def generate_fallback_suggestion(original_filters: dict, alternative_count: int,
     url = "https://api.deepseek.com/chat/completions"
     api_key = os.getenv("DEEPSEEK_API_KEY")
     if not api_key:
-        return "Ø¬Ø±Ø¨ ØªØºÙŠÙŠØ± Ø¨Ø¹Ø¶ Ø§Ù„ÙÙ„Ø§ØªØ± Ù„Ù„Ø­ØµÙˆÙ„ Ø¹Ù„Ù‰ Ù†ØªØ§Ø¦Ø¬."
+        return "جرب تغيير بعض ال�?لاتر للحصول على نتائج."
 
     headers = {
         "Content-Type": "application/json",
@@ -104,13 +104,13 @@ def generate_fallback_suggestion(original_filters: dict, alternative_count: int,
     }
 
     prompt = f"""
-Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… Ø¨Ø­Ø« Ø¹Ù† Ø¹Ù‚Ø§Ø± Ø¨Ø§Ø³ØªØ®Ø¯Ø§Ù… Ù‡Ø°Ù‡ Ø§Ù„ÙÙ„Ø§ØªØ±:
+المستخدم بحث عن عقار باستخدام هذه ال�?لاتر:
 {json.dumps(original_filters, ensure_ascii=False)}
 
-ÙˆÙ„ÙƒÙ† Ù„Ù… Ù†Ø¬Ø¯ Ø£ÙŠ Ù†ØªØ§Ø¦Ø¬. 
-Ù‚Ù…Ù†Ø§ Ø¨Ø¥Ø²Ø§Ù„Ø© Ø§Ù„ÙÙ„ØªØ±: {removed_filter} ÙˆÙˆØ¬Ø¯Ù†Ø§ {alternative_count} Ø¥Ø¹Ù„Ø§Ù†Ø§Øª.
+ولكن لم نجد أي نتائج. 
+قمنا بإزالة ال�?لتر: {removed_filter} ووجدنا {alternative_count} إعلانات.
 
-Ø§ÙƒØªØ¨ Ø±Ø³Ø§Ù„Ø© ÙˆØ¯ÙŠØ© Ù‚ØµÙŠØ±Ø© Ø¬Ø¯Ø§Ù‹ Ø¨Ø§Ù„Ù„Ù‡Ø¬Ø© Ø§Ù„Ø£Ø±Ø¯Ù†ÙŠØ© ØªÙ‚ØªØ±Ø­ Ø¹Ù„Ù‰ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù… ØªØ¹Ø¯ÙŠÙ„ Ù‡Ø°Ø§ Ø§Ù„ÙÙ„ØªØ± Ø¨Ø§Ù„Ø°Ø§Øª (Ù…Ø«Ù„Ø§Ù‹ Ø¥Ø°Ø§ ÙƒØ§Ù† Ø§Ù„Ø³Ø¹Ø±ØŒ Ø§Ù‚ØªØ±Ø­ Ø²ÙŠØ§Ø¯Ø© Ø§Ù„Ù…ÙŠØ²Ø§Ù†ÙŠØ©ØŒ Ø¥Ø°Ø§ ÙƒØ§Ù† Ø§Ù„Ù…Ù†Ø·Ù‚Ø© Ø§Ù‚ØªØ±Ø­ ØªÙˆØ³ÙŠØ¹ Ù†Ø·Ø§Ù‚ Ø§Ù„Ø¨Ø­Ø«) Ù„Ù„Ø­ØµÙˆÙ„ Ø¹Ù„Ù‰ {alternative_count} Ù†ØªØ§Ø¦Ø¬. Ù„Ø§ ØªØ³ØªØ®Ø¯Ù… Ø£ÙŠ Ø±Ù…ÙˆØ² Markdown.
+اكتب رسالة ودية قصيرة جداً باللهجة الأردنية تقترح على المستخدم تعديل هذا ال�?لتر بالذات (مثلاً إذا كان السعر، اقترح زيادة الميزانية، إذا كان المنطقة اقترح توسيع نطاق البحث) للحصول على {alternative_count} نتائج. لا تستخدم أي رموز Markdown.
     """
 
     data = {
@@ -123,7 +123,7 @@ def generate_fallback_suggestion(original_filters: dict, alternative_count: int,
             result = json.loads(response.read().decode("utf-8"))
             return result["choices"][0]["message"]["content"].strip()
     except Exception as e:
-        return "Ù„Ø§ ØªÙˆØ¬Ø¯ Ù†ØªØ§Ø¦Ø¬ Ù…Ø·Ø§Ø¨Ù‚Ø©ØŒ Ø¬Ø±Ø¨ ØªØºÙŠÙŠØ± Ø¨Ø¹Ø¶ Ø§Ù„ÙÙ„Ø§ØªØ± Ù„Ù„Ø­ØµÙˆÙ„ Ø¹Ù„Ù‰ Ù†ØªØ§Ø¦Ø¬."
+        return "لا توجد نتائج مطابقة، جرب تغيير بعض ال�?لاتر للحصول على نتائج."
 
 
         
@@ -167,7 +167,7 @@ def generate_fallback_suggestion(original_filters: dict, alternative_count: int,
                 break
                 
     # 2. Try combined match first
-    combined = f"{prop_norm} Ù„Ù„Ø§ÙŠØ¬Ø§Ø±" if is_rent else f"{prop_norm} Ù„Ù„Ø¨ÙŠØ¹"
+    combined = f"{prop_norm} للايجار" if is_rent else f"{prop_norm} للبيع"
     for k, v in CATEGORY_SYNONYMS.items():
         if k in combined:
             return v
@@ -281,7 +281,7 @@ def resolve_regions_smart(db: Session, raw_locations: list, city_id: int = None)
         norm_loc = normalize_arabic(raw_loc)
         if not norm_loc: continue
         
-        # 1. Check Zone Dictionary first (e.g. "Ø¹Ù…Ø§Ù† Ø§Ù„ØºØ±Ø¨ÙŠØ©")
+        # 1. Check Zone Dictionary first (e.g. "عمان الغربية")
         zone_matched = False
         for zone_key, zone_areas in ZONE_REGIONS.items():
             if norm_loc == normalize_arabic(zone_key):
@@ -394,17 +394,17 @@ def parse_floor(floor_word: str):
     if not floor_word:
         return None
     w = floor_word.lower()
-    if "Ø§Ø±Ø¶ÙŠ" in w or "Ø£Ø±Ø¶ÙŠ" in w or "Ø­Ø¯ÙŠÙ‚Ø©" in w:
+    if "ارضي" in w or "أرضي" in w or "حديقة" in w:
         return -1
-    if "ØªØ³ÙˆÙŠØ©" in w:
+    if "تسوية" in w:
         return -2
-    if "Ø§ÙˆÙ„" in w or "Ø£ÙˆÙ„" in w: return 1
-    if "Ø«Ø§Ù†ÙŠ" in w: return 2
-    if "Ø«Ø§Ù„Ø«" in w: return 3
-    if "Ø±Ø§Ø¨Ø¹" in w: return 4
-    if "Ø®Ø§Ù…Ø³" in w: return 5
-    if "Ø³Ø§Ø¯Ø³" in w: return 6
-    if "Ø§Ø®ÙŠØ±" in w or "Ø£Ø®ÙŠØ±" in w or "Ø±ÙˆÙ" in w: return 100 # usually top floor
+    if "اول" in w or "أول" in w: return 1
+    if "ثاني" in w: return 2
+    if "ثالث" in w: return 3
+    if "رابع" in w: return 4
+    if "خامس" in w: return 5
+    if "سادس" in w: return 6
+    if "اخير" in w or "أخير" in w or "رو�?" in w: return 100 # usually top floor
     return None
 
 @smart_search_router.post("/api/smart-voice-search", response_model=SmartSearchResponse)
@@ -562,6 +562,9 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
                 resolved_category_name = cat_obj.name
         except Exception:
             pass
+            
+    if not resolved_category_name:
+        resolved_category_name = "نتائج البحث"
 
     applied_filters = {
         "category_id": category_id,
@@ -591,8 +594,8 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     
     suggestion = None
     if not_found_regions:
-        names = " Ø£Ùˆ ".join(not_found_regions)
-        suggestion = f"Ù…Ù„Ø§Ø­Ø¸Ø©: Ù…Ù†Ø·Ù‚Ø© '{names}' ØºÙŠØ± Ù…Ø³Ø¬Ù„Ø©ØŒ ØªÙ… Ø¹Ø±Ø¶ Ù†ØªØ§Ø¦Ø¬ ØªÙ‚Ø±ÙŠØ¨ÙŠØ©."
+        names = " أو ".join(not_found_regions)
+        suggestion = f"ملاحظة: منطقة '{names}' غير مسجلة، تم عرض نتائج تقريبية."
         
     if count > 0:
         return SmartSearchResponse(
