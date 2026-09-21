@@ -68,6 +68,8 @@ Output JSON format:
     "max_price_word": "Extract text indicating max price",
     "min_price_word": "Extract text indicating min price",
     "floor_word": "Extract floor mentioned",
+    "bedrooms_number": "Extract the integer number of bedrooms mentioned, or null if not mentioned",
+    "bathrooms_number": "Extract the integer number of bathrooms mentioned, or null if not mentioned",
     "features": ["Extract EXACTLY the features mentioned in the text. Do NOT guess or infer features that are not explicitly stated."]
   }}
 }}"""
