@@ -79,8 +79,7 @@ Output JSON format:
     "building_age": "Choose ONE from: 0 - 11 شهر, 1 - 5 سنوات, 6 - 9 سنوات, 10 - 19 سنوات, +20 سنة. If not mentioned, return null.",
     "interface": "Choose ONE from: شمالية, جنوبية, شرقية, غربية, شمالية شرقية, شمالية غربية, جنوبية شرقية, جنوبية غربية. If not mentioned, return null.",
     "main_features": ["Choose from: تكييف مركزي, تدفئة, شرفة / بلكونة, غرفة خادمة, غرفة غسيل, خزائن حائط, مسبح خاص, سخان شمسي, زجاج شبابيك مزدوج. If not mentioned, return empty list."],
-    "extra_features": ["Choose from: يوجد مصعد, موقف سيارات, حارس / أمن وحماية, نظام كهرباء احتياطي للطوارئ, انتركم, حديقة, كراج تفك, منطقة شواء, بركة سباحة. If not mentioned, return empty list."],
-    "features": ["Extract any other explicitly stated features that do not fit in the lists above."]
+    "extra_features": ["Choose from: يوجد مصعد, موقف سيارات, حارس / أمن وحماية, نظام كهرباء احتياطي للطوارئ, انتركم, حديقة, كراج تفك, منطقة شواء, بركة سباحة. If not mentioned, return empty list."]
   }}
 }}"""
 
