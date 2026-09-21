@@ -63,13 +63,23 @@ Output JSON format:
   "intent": "search" | "post_ad",
   "raw_filters": {{
     "category_id": integer ID of the best matching category from the list above, or null if unknown,
+    "property_type": "Extract the property type mentioned (e.g. شقة, فيلا, سيارة), or null",
     "locations": ["Extract ALL location names, regions, or cities mentioned in the text as a list of strings"],
-    "furnishing_word": "Extract word indicating furniture",
+    "nearby_locations": ["Extract ALL nearby landmarks or locations mentioned in the text as a list of strings"],
+    "furnishing_word": "Extract word indicating furniture (e.g. مفروشة, فارغة), or null",
     "max_price_word": "Extract text indicating max price",
     "min_price_word": "Extract text indicating min price",
-    "floor_word": "Extract floor mentioned",
+    "min_area_number": "Extract the integer minimum area in square meters mentioned, or null",
+    "max_area_number": "Extract the integer maximum area in square meters mentioned, or null",
+    "floor_words": ["Extract all floor words mentioned (e.g. أرضي, أول, ثاني) as a list"],
+    "floor_numbers": ["Extract all floor integer numbers mentioned as a list of ints"],
     "bedrooms_number": "Extract the integer number of bedrooms mentioned, or null if not mentioned",
     "bathrooms_number": "Extract the integer number of bathrooms mentioned, or null if not mentioned",
+    "rent_period": "Extract the rent period if mentioned (e.g. شهري, سنوي, يومي), or null",
+    "building_age": "Extract the building age if mentioned (e.g. جديد, قيد الإنشاء, مستعمل), or null",
+    "interface": "Extract the interface/direction if mentioned (e.g. شمالي, شرقي), or null",
+    "main_features": ["Extract ALL main features mentioned (e.g. بلكونة, كراج, مصعد) as a list of strings"],
+    "extra_features": ["Extract ALL extra features mentioned (e.g. مسبح, حديقة) as a list of strings"],
     "features": ["Extract EXACTLY the features mentioned in the text. Do NOT guess or infer features that are not explicitly stated."]
   }}
 }}"""
