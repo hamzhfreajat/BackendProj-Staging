@@ -561,7 +561,14 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
             features_list.append(item)
             
     # Build Display Data for Frontend
-    location_names = raw.get("locations") or []
+    location_names = []
+    if region_ids:
+        resolved_regions = db.query(models.Region).filter(models.Region.id.in_(region_ids)).all()
+        location_names = [r.name_ar for r in resolved_regions]
+    elif city_id:
+        city_obj = db.query(models.City).filter(models.City.id == city_id).first()
+        if city_obj:
+            location_names = [city_obj.name_ar]
     
     tags = []
     
@@ -571,9 +578,9 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     if raw.get("bathrooms_number") is not None:
         tags.append(f"bathrooms:{raw['bathrooms_number']}")
         
-    if furnished is not None:
-        val = "نعم" if furnished else "لا"
-        tags.append(f"furnished:{val}")
+    fw = raw.get("furnishing_word")
+    if fw in ["مفروشة", "غير مفروشة", "مفروش جزئياً"]:
+        tags.append(f"furnished:{fw}")
         
     if rent_period:
         tags.append(f"rent_duration:{rent_period}")
