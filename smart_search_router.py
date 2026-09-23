@@ -134,66 +134,7 @@ def generate_fallback_suggestion(original_filters: dict, alternative_count: int,
             result = json.loads(response.read().decode("utf-8"))
             return result["choices"][0]["message"]["content"].strip()
     except Exception as e:
-        return "لا توجد نتائج مطابقة، جرب تغيير بعض ال�?لاتر للحصول على نتائج."
-
-
-        
-    prop_norm = raw_prop.lower()
-    
-    # 1. Resolve Transaction (Sale vs Rent)
-    is_rent = (raw_trans == "rent") if raw_trans else False
-                
-    # 2. Try combined match first
-    combined = f"{prop_norm} للإيجار" if is_rent else f"{prop_norm} للبيع"
-    for k, v in CATEGORY_SYNONYMS.items():
-        if k in combined:
-            return v
-            
-    # 3. Fallback to direct mapping
-    for k, v in CATEGORY_SYNONYMS.items():
-        if k in prop_norm:
-            # If it's a generic map (like 201), and they want rent, force rent ID
-            if is_rent and v == 201: return 301 # apartments
-            if is_rent and v == 2015: return 3015
-            if is_rent and v == 2016: return 302 # studios
-            if is_rent and v == 202: return 313 # land
-            if is_rent and v == 2031: return 316 # villas to rural? (approx fallback)
-            if is_rent and v == 204: return 303 # shops
-            if is_rent and v == 2051: return 314 # farms
-            if is_rent and v == 2052: return 315 # chalets
-            if is_rent and v == 2061: return 316 # houses
-            return v
-            
-    return None
-        
-    prop_norm = raw_prop.lower()
-    trans_norm = raw_trans.lower() if raw_trans else ""
-    
-    # 1. Resolve Transaction (Sale vs Rent)
-    is_rent = False
-    for k, v in TRANSACTION_SYNONYMS.items():
-        if k in trans_norm or k in prop_norm:
-            if v == "rent":
-                is_rent = True
-                break
-                
-    # 2. Try combined match first
-    combined = f"{prop_norm} للايجار" if is_rent else f"{prop_norm} للبيع"
-    for k, v in CATEGORY_SYNONYMS.items():
-        if k in combined:
-            return v
-            
-    # 3. Fallback to direct mapping
-    for k, v in CATEGORY_SYNONYMS.items():
-        if k in prop_norm:
-            # If it's a generic map (like 10301), and they want rent, force rent ID
-            if is_rent and v == 10301: return 301 # apartments
-            if is_rent and v == 10101: return 3101 # villas
-            if is_rent and v == 10302: return 302 # studios
-            if is_rent and v == 10853: return 303 # shops
-            return v
-            
-    return None
+        return "لا توجد نتائج مطابقة، جرب تغيير بعض ال?لاتر للحصول على نتائج."
 
 ZONE_REGIONS = {
     "عمان الغربية": [
@@ -452,6 +393,12 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     # STEP 2: Python Engine Smart Matching
     
     category_id = raw.get("category_id")
+    
+    # INTERCEPT: "بيت للايجار" -> "شقق للايجار" (301) unless "مستقل" is mentioned
+    text_clean = request.text.replace('أ', 'ا').replace('إ', 'ا').replace('آ', 'ا').replace('ة', 'ه').lower()
+    if "بيت" in text_clean and ("ايجار" in text_clean or "اجار" in text_clean):
+        if "مستقل" not in text_clean:
+            category_id = 301  # شقق للايجار
     raw_locations = raw.get("locations") or []
     
     WEST_AMMAN_REGIONS = [
@@ -529,6 +476,16 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         if parsed is not None and parsed not in floor_numbers:
             floor_numbers.append(parsed)
             
+    # Reverse map numbers to words for UI chips if missing
+    floor_mapping = {
+        -1: "الطابق الأرضي", -2: "طابق التسوية",
+        1: "الطابق الأول", 2: "الطابق الثاني", 3: "الطابق الثالث", 4: "الطابق الرابع",
+        5: "الطابق الخامس", 6: "الطابق السادس", 100: "طابق أخير"
+    }
+    for fn in floor_numbers:
+        if fn in floor_mapping:
+            if floor_mapping[fn] not in floor_words:
+                floor_words.append(floor_mapping[fn])
     # Area
     min_area = raw.get("min_area_number")
     max_area = raw.get("max_area_number")
