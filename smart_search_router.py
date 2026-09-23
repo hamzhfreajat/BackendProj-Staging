@@ -222,8 +222,10 @@ def resolve_regions_smart(db: Session, raw_locations: list, city_id: int = None)
         
     # Fetch all regions to memory for matching (small enough to be very fast)
     all_regions = db.query(models.Region).all()
+    all_cities = db.query(models.City).all()
     # Pre-calculate normalized names
     db_candidates = {r.id: {"norm": normalize_arabic(r.name_ar), "obj": r} for r in all_regions}
+    city_candidates = {c.id: {"norm": normalize_arabic(c.name_ar), "obj": c} for c in all_cities}
     
     found_region_ids = []
     not_found_names = []
@@ -233,6 +235,18 @@ def resolve_regions_smart(db: Session, raw_locations: list, city_id: int = None)
         norm_loc = normalize_arabic(raw_loc)
         if not norm_loc: continue
         
+        # 0. Check if it's a City directly
+        city_matched = False
+        for c_id, c_data in city_candidates.items():
+            if norm_loc == c_data["norm"] or (difflib.SequenceMatcher(None, norm_loc, c_data["norm"]).ratio() > 0.85):
+                if not inferred_city:
+                    inferred_city = c_id
+                city_matched = True
+                break
+                
+        if city_matched:
+            continue
+            
         # 1. Check Zone Dictionary first (e.g. "عمان الغربية")
         zone_matched = False
         for zone_key, zone_areas in ZONE_REGIONS.items():
