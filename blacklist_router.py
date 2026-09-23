@@ -39,8 +39,10 @@ def add_blocked_phone(
     from sqlalchemy import text
     try:
         # PostgreSQL specific syntax for JSONB
+        # Only delete scraped ads, leave organic ads alone
         ads_to_delete = db.query(models.Ad).filter(
-            text("attributes->>'phone_number' = :phone").bindparams(phone=phone)
+            text("attributes->>'phone_number' = :phone").bindparams(phone=phone),
+            models.Ad.source_type != models.SourceType.ORGANIC_USER
         ).all()
         
         for ad in ads_to_delete:
