@@ -1,44 +1,16 @@
-
-import os
-import sys
-
-with open('.env') as f:
-    for line in f:
-        line = line.strip()
-        if line and not line.startswith('#'):
-            k, v = line.split('=', 1)
-            os.environ[k] = v
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from models import Ad
-from schemas import AdUpdate
-from main import update_ad
-from fastapi import BackgroundTasks
-
-engine = create_engine(os.environ['DATABASE_URL'])
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-db = SessionLocal()
-
-ad = db.query(Ad).filter(Ad.id == 14067).first()
-if ad:
-    class MockUser:
-        id = ad.user_id
-        user_type = 'user'
-    
-    update_data = AdUpdate(image_urls=['test1', 'test2', 'test3'])
-    try:
-        updated = update_ad(14067, update_data, BackgroundTasks(), MockUser(), db)
-        print('Returned from update_ad:', updated.attributes.get('image_urls', []))
-    except Exception as e:
-        print('Error:', e)
-    
-    # Reload from DB in a new session to prove it saved
-    db.commit()
-    db.close()
-    
-    db2 = SessionLocal()
-    ad2 = db2.query(Ad).filter(Ad.id == 14067).first()
-    print('After reload:', ad2.attributes.get('image_urls', []))
-    db2.close()
-
+﻿import sys; sys.stdout.reconfigure(encoding='utf-8')
+from unittest.mock import MagicMock, patch
+import smart_search_router
+from smart_search_router import smart_voice_search, SmartSearchRequest
+import models
+db = MagicMock()
+mock_query = MagicMock()
+mock_query.count.return_value = 0
+mock_query.filter.return_value = mock_query
+db.query.return_value = mock_query
+req = SmartSearchRequest(text='بدي شقه للايجار بمفروشه بعمان بين 250 و 300 دينار')
+def mock_extract(text, valid_tags):
+    return {'intent': 'search', 'raw_filters': {'property_type': 'شقة', 'transaction': 'rent', 'locations': ['عمان'], 'max_price_number': 300, 'bedrooms_number': 2}}
+smart_search_router.extract_raw_data_via_deepseek = mock_extract
+try: res = smart_voice_search(req, db); print(res.intent)
+except Exception as e: print('ERROR:', type(e), e)

@@ -1,0 +1,17 @@
+{
+  "intent": "search",
+  "filters": {
+    "category": "شقق للإيجار",
+    "city": "عمان",
+    "region": "الياسمين",
+    "min_price": null,
+    "max_price": 230,
+    "bedrooms": 2,
+    "bathrooms": null,
+    "min_area": null,
+    "max_area": null,
+    "furnished": null,
+    "floor": null,
+    "rent_duration": null
+  }
+}

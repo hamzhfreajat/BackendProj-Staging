@@ -1,0 +1,28 @@
+{
+  "intent": "search",
+  "raw_filters": {
+    "category_id": null,
+    "property_type": "شقة",
+    "locations": [
+      "عمان"
+    ],
+    "nearby_locations": [],
+    "furnishing_word": null,
+    "max_price_word": null,
+    "min_price_word": null,
+    "min_area_number": null,
+    "max_area_number": null,
+    "floor_words": [],
+    "floor_numbers": [
+      1,
+      2
+    ],
+    "bedrooms_number": null,
+    "bathrooms_number": null,
+    "rent_period": null,
+    "building_age": null,
+    "interface": null,
+    "main_features": [],
+    "extra_features": []
+  }
+}
