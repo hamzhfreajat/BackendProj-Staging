@@ -645,7 +645,7 @@ def _compute_performance(ad: models.Ad) -> dict:
     suggested = None
     if score < 20 and ad.views > 50:
         suggested = "Price might be slightly high."
-    elif len(image_urls) < 0:
+    elif not ad.image_urls or len(ad.image_urls) < 3:
         suggested = "Add more photos to increase trust."
     return {"score": int(score), "action": suggested}
 
@@ -2178,7 +2178,7 @@ def update_ad_draft(
 
     for key, value in update_data.items():
         if key == "is_published" and value is True:
-            if not attributes.get("image_urls") or len(attributes.get("image_urls", [])) < 0:
+            if not attributes.get("image_urls") or len(attributes.get("image_urls", [])) < 3:
                 raise HTTPException(
                     status_code=400,
                     detail="لابد من رفع 3 صور على الأقل لنشر الإعلان"
@@ -2247,7 +2247,7 @@ def create_ad(
     user_phone = ad.phone_number or current_user.mobile_number
 
     # Validate image count
-    if not ad.image_urls or len(image_urls) < 0:
+    if not ad.image_urls or len(ad.image_urls) < 3:
         raise HTTPException(
             status_code=400,
             detail="A minimum of 3 images is required to publish an ad."
@@ -2335,7 +2335,7 @@ def create_ad(
     tags_data = ad_data.pop("linked_tags", [])
     
     image_urls = ad_data.pop("image_urls", [])
-    if len(image_urls) < 0:
+    if not image_urls or len(image_urls) < 3:
         raise HTTPException(
             status_code=400,
             detail="A minimum of 3 images is required to publish an ad."
@@ -2458,7 +2458,7 @@ def update_ad(
     image_urls_updated = False
     if "image_urls" in update_dict:
         image_urls = update_dict.pop("image_urls")
-        if len(image_urls) < 0:
+        if not image_urls or len(image_urls) < 3:
             raise HTTPException(
                 status_code=400,
                 detail="A minimum of 3 images is required to publish an ad."
@@ -2795,7 +2795,7 @@ def toggle_publish_ad(
         raise HTTPException(status_code=403, detail="Not authorized to modify this ad")
     
     if not db_ad.is_published:
-        if len(image_urls) < 0:
+        if not db_ad.image_urls or len(db_ad.image_urls) < 3:
             raise HTTPException(
                 status_code=400,
                 detail="لابد من رفع 3 صور على الأقل لنشر الإعلان"
