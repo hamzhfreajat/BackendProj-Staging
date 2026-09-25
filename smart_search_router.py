@@ -78,8 +78,8 @@ Output JSON format:
     "rent_period": "Choose ONE from: يومي, أسبوعي, شهري, كل 3 أشهر, كل أربع أشهر, كل 5 أشهر, كل 6 أشهر, سنوي. If not mentioned, return null.",
     "building_age": "Choose ONE from: 0 - 11 شهر, 1 - 5 سنوات, 6 - 9 سنوات, 10 - 19 سنوات, +20 سنة. If not mentioned, return null.",
     "interface": "Choose ONE from: شمالية, جنوبية, شرقية, غربية, شمالية شرقية, شمالية غربية, جنوبية شرقية, جنوبية غربية. If not mentioned, return null.",
-    "main_features": ["Choose from: تكييف مركزي, تدفئة, شرفة / بلكونة, غرفة خادمة, غرفة غسيل, خزائن حائط, مسبح خاص, سخان شمسي, زجاج شبابيك مزدوج. If not mentioned, return empty list."],
-    "extra_features": ["Choose from: يوجد مصعد, موقف سيارات, حارس / أمن وحماية, نظام كهرباء احتياطي للطوارئ, انتركم, حديقة, كراج تفك, منطقة شواء, بركة سباحة. If not mentioned, return empty list."]
+    "main_features": ["Choose from: تكييف مركزي, تدفئة, شرفة / بلكونة, غرفة خادمة, غرفة غسيل, خزائن حائط, مسبح خاص, سخان شمسي, زجاج شبابيك مزدوج, مناسبة لعرسان, كراج, سوبر ديلوكس. If not mentioned, return empty list."],
+    "extra_features": ["Choose from: يوجد مصعد, موقف سيارات, حارس / أمن وحماية, نظام كهرباء احتياطي للطوارئ, انتركم, حديقة, منطقة شواء, بركة سباحة. If not mentioned, return empty list."]
   }}
 }}"""
 

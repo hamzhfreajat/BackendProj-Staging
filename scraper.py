@@ -34,7 +34,7 @@ class ExtractedAdAttributes(BaseModel):
     bathrooms: Optional[int] = Field(description="Number of bathrooms")
     furnished: Optional[str] = Field(description="Furnished state. Match exactly: مفروشة, غير مفروشة, مفروش جزئياً")
     floor: Optional[str] = Field(description="Floor level. Match exactly: طابق التسوية, طابق شبه أرضي, الطابق الأرضي, 1, 2, 3, 4, 5, 6, 7, طابق أخير, روف, طابق أخير مع روف")
-    key_features: List[str] = Field(description="Array of features. Match exactly if possible: تكييف مركزي, تدفئة, شرفة / بلكونة, غرفة خادمة, غرفة غسيل, خزائن حائط, مسبح خاص, سخان شمسي, زجاج شبابيك مزدوج, مطبخ راكب, صالون واسع, تأسيس تكييف")
+    key_features: List[str] = Field(description="Array of features. Match exactly if possible: تكييف مركزي, تدفئة, شرفة / بلكونة, غرفة خادمة, غرفة غسيل, خزائن حائط, مسبح خاص, سخان شمسي, زجاج شبابيك مزدوج, مطبخ راكب, صالون واسع, تأسيس تكييف, مناسبة لعرسان, كراج, سوبر ديلوكس")
     has_terrace: Optional[str] = Field(description="Match exactly: نعم, لا if the ad mentions having a terrace (ترس)")
     terrace_area: Optional[str] = Field(description="Terrace area in square meters if mentioned")
     
@@ -69,7 +69,7 @@ class ExtractedAdAttributes(BaseModel):
     
     # 6. Building Specs
     building_age: Optional[str] = Field(description="Age of building: Match exactly: 0 - 11 شهر, 1 - 5 سنوات, 6 - 9 سنوات, 10 - 19 سنوات, +20 سنة")
-    building_features: List[str] = Field(description="Building perks. Match exactly if possible: يوجد مصعد, حديقة, كراج, حارس / أمن وحماية, كراج تفك, منطقة شواء, نظام كهرباء احتياطي للطوارئ, بركة سباحة, انتركم")
+    building_features: List[str] = Field(description="Building perks. Match exactly if possible: يوجد مصعد, حديقة, حارس / أمن وحماية, كراج تفك, منطقة شواء, نظام كهرباء احتياطي للطوارئ, بركة سباحة, انتركم")
     
     # Lands & Commercial Specs
     land_type: Optional[str] = Field(description="Match exactly: سكنية, تجارية, زراعية, صناعية, استثمارية, سياحية, مختلطة, أخرى")

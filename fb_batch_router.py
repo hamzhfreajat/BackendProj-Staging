@@ -112,7 +112,7 @@ CRITICAL LOCATION RULES:
     - bathrooms (int) -- Number of bathrooms
     - furnished (string) -- Match exactly: مفروشة, غير مفروشة, مفروش جزئياً
     - floor (string) -- Match exactly: طابق التسوية, طابق شبه أرضي, الطابق الأرضي, 1, 2, 3, 4, 5, 6, 7
-    - key_features (list[string]) -- Match exactly if possible: تكييف مركزي, تدفئة, شرفة / بلكونة, غرفة خادمة, غرفة غسيل, خزائن حائط, مسبح خاص, سخان شمسي, زجاج شبابيك مزدوج
+    - key_features (list[string]) -- Match exactly if possible: تكييف مركزي, تدفئة, شرفة / بلكونة, غرفة خادمة, غرفة غسيل, خزائن حائط, مسبح خاص, سخان شمسي, زجاج شبابيك مزدوج, مناسبة لعرسان, كراج, سوبر ديلوكس
     - room_type (string) -- غرفة خاصة, غرفة مشتركة, سرير في غرفة, استوديو ملحق بالسكن
     - target_audience (list[string]) -- شباب, طلاب, بنات, عائلات
     - room_capacity (string) -- شخص واحد, شخصين
