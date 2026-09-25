@@ -49,7 +49,8 @@ def extract_raw_data_via_deepseek(text: str, categories_str: str = "") -> dict:
 
     system_prompt = f"""You are a helpful NLP assistant. Extract entities from Jordanian real estate search queries.
 Do NOT guess or correct anything, except for category_id which must be selected from the provided list.
-You MUST choose the most specific end-level category from the list. Do NOT choose broad/parent categories.
+You MUST choose the most specific end-level category from the list. 
+CRITICAL RULE: If the user DOES NOT explicitly mention whether they want to RENT (ايجار) or BUY/SALE (بيع / شراء), you MUST set category_id to null so the search can span across both. Do not guess the category if rent/sale intent is ambiguous.
 
 Intent mapping:
 - search: Looking for properties (e.g. "شقة للايجار", "بدي استأجر", "عقارات")
