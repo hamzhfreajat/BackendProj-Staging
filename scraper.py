@@ -49,6 +49,7 @@ class ExtractedAdAttributes(BaseModel):
     rent_includes: List[str] = Field(description="What's included in rent: الكهرباء, الماء, الإنترنت, التدفئة, الغاز, حارس العمارة, غير شامل")
     payment_frequency: Optional[str] = Field(description="e.g. دفع شهري, دفع كل 3 شهور, دفع فصلي")
     insurance_required: Optional[bool] = Field(description="True if insurance/deposit is required, False if without insurance")
+    payment_method: Optional[str] = Field(description="Match exactly: كاش, أقساط, كاش أو أقساط")
     
     # 3. Room Specs
     bathroom_type: Optional[str] = Field(description="Bathroom type: حمام ماستر, حمام مشترك مع شخص واحد, حمام مشترك مع باقي الشقة")

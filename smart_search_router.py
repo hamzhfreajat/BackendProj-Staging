@@ -14,6 +14,7 @@ from database import get_db
 
 from arabic_utils import normalize_arabic, convert_hindi_numerals, parse_price
 from dialect_dictionary import FURNISHING_SYNONYMS, TRANSACTION_SYNONYMS, CATEGORY_SYNONYMS, ZONE_REGIONS
+from auth import redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,11 @@ def extract_raw_data_via_deepseek(text: str, categories_str: str = "") -> dict:
     """
     Step 1: Uses DeepSeek to act purely as an NLP entity extractor.
     """
+    cache_key = f"smart_search_ai:{text}"
+    cached_result = redis_client.get(cache_key)
+    if cached_result:
+        return json.loads(cached_result)
+
     url = "https://api.deepseek.com/chat/completions"
     import os
     from fastapi import HTTPException
@@ -51,6 +57,7 @@ def extract_raw_data_via_deepseek(text: str, categories_str: str = "") -> dict:
 Do NOT guess or correct anything, except for category_id which must be selected from the provided list.
 You MUST choose the most specific end-level category from the list. 
 CRITICAL RULE: If the user DOES NOT explicitly mention whether they want to RENT (ايجار) or BUY/SALE (بيع / شراء), you MUST set category_id to null so the search can span across both. Do not guess the category if rent/sale intent is ambiguous.
+CRITICAL RULE: If the user explicitly negates a feature (e.g. 'مش طابق ارضي', 'بدون فرش', 'غير مفروش'), DO NOT extract it.
 
 Intent mapping:
 - search: Looking for properties (e.g. "شقة للايجار", "بدي استأجر", "عقارات")
@@ -68,6 +75,7 @@ Output JSON format:
     "locations": ["Extract ALL location names, regions, or cities mentioned in the text as a list of strings"],
     "nearby_locations": ["Choose from: بنك / صراف آلي, دراي كلين, سوبر ماركت, صالة رياضية / جيم, صيدلية, محطة باصات, مدرسة, مستشفى, مسجد, مطعم. If not mentioned, return empty list."],
     "furnishing_word": "Choose ONE from: مفروشة, غير مفروشة, مفروش جزئياً. If not mentioned, return null.",
+    "payment_method": "Choose ONE from: كاش, أقساط. If not mentioned, return null.",
     "max_price_word": "Extract text indicating max price",
     "min_price_word": "Extract text indicating min price",
     "min_area_number": "Extract the integer minimum area in square meters mentioned, or null",
@@ -96,13 +104,20 @@ Output JSON format:
 
     try:
         req = urllib.request.Request(url, data=json.dumps(data).encode("utf-8"), headers=headers, method="POST")
-        with urllib.request.urlopen(req, timeout=15) as response:
+        with urllib.request.urlopen(req, timeout=10) as response:
             result = json.loads(response.read().decode("utf-8"))
             content = result["choices"][0]["message"]["content"]
-            return json.loads(content)
+            parsed_json = json.loads(content)
+            redis_client.setex(cache_key, 86400, json.dumps(parsed_json))
+            if redis_client:
+                redis_client.setex(cache_key, 86400, json.dumps(parsed_json))
+            return parsed_json
+    except urllib.error.HTTPError as e:
+        logger.error(f"HTTPError calling DeepSeek API: {str(e)}")
+        return {"intent": "error", "message": "عذراً، هنالك ضغط كبير على محرك البحث الذكي حالياً. يرجى المحاولة مرة أخرى أو استخدام الفلاتر اليدوية."}
     except Exception as e:
         logger.error(f"Error calling DeepSeek API: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error communicating with AI service.")
+        return {"intent": "error", "message": "عذراً، هنالك ضغط كبير على محرك البحث الذكي حالياً. يرجى المحاولة مرة أخرى أو استخدام الفلاتر اليدوية."}
 
 def generate_fallback_suggestion(original_filters: dict, alternative_count: int, removed_filter: str) -> str:
     url = "https://api.deepseek.com/chat/completions"
@@ -400,6 +415,10 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     ai_response = extract_raw_data_via_deepseek(request.text, categories_str=categories_str)
     
     intent = ai_response.get("intent", "search")
+    if intent == "error":
+        return SmartSearchResponse(intent="search", result_count=0, filters_applied={}, action_required=ai_response.get("message"))
+    if intent == "error":
+        return SmartSearchResponse(intent="search", result_count=0, filters_applied={}, action_required=ai_response.get("message", "عذراً، النظام تحت ضغط عالي. يرجى الانتظار."))
     if intent != "search":
         return SmartSearchResponse(intent=intent, result_count=0, filters_applied={})
         
@@ -727,6 +746,18 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         applied_filters["location_names"] = [n for n in location_names if n == "عمان"]
         query = build_search_query(db, applied_filters)
         count = query.count()
+        
+    try:
+        from models import SearchQueryLog
+        query_log = SearchQueryLog(
+            query_text=request.text,
+            results_count=count,
+            extracted_tags=json.dumps(ai_response)
+        )
+        db.add(query_log)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to log search query: {e}")
         if count > 0:
             return SmartSearchResponse(intent=intent, result_count=count, filters_applied=applied_filters, suggestion="لم نجد نتائج في هذه المنطقة تحديداً، تم عرض نتائج المدينة كاملة.")
             
