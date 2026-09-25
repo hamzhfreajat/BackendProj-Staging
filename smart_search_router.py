@@ -58,6 +58,9 @@ Do NOT guess or correct anything, except for category_id which must be selected 
 You MUST choose the most specific end-level category from the list. 
 CRITICAL RULE: If the user DOES NOT explicitly mention whether they want to RENT (ايجار) or BUY/SALE (بيع / شراء), you MUST set category_id to null so the search can span across both. Do not guess the category if rent/sale intent is ambiguous.
 CRITICAL RULE: If the user explicitly negates a feature (e.g. 'مش طابق ارضي', 'بدون فرش', 'غير مفروش'), DO NOT extract it.
+CRITICAL RULE: If the user uses relative sizes for an apartment:
+- 'صغيرة' (small): set max_area_number to 90 (unless a specific number is provided).
+- 'كبيرة' (large) or 'واسعة': set min_area_number to 150 (unless a specific number is provided).
 
 Intent mapping:
 - search: Looking for properties (e.g. "شقة للايجار", "بدي استأجر", "عقارات")
