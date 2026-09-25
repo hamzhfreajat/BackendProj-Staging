@@ -35,30 +35,30 @@ def escape_like(s: str) -> str:
 
 def norm_str(s):
     if not s: return s
-    for a, b in [('أ', 'ا'), ('إ', 'ا'), ('آ', 'ا'), ('ة', 'ه'), ('ى', 'ي')]:
+    for a, b in [('Ø£', 'Ø§'), ('Ø¥', 'Ø§'), ('Ø¢', 'Ø§'), ('Ø©', 'Ù‡'), ('Ù‰', 'ÙŠ')]:
         s = s.replace(a, b)
     return s
 
 def normalize_region_name(name):
     if not name: return name
     n = norm_str(name).strip()
-    if n.startswith('ال'):
+    if n.startswith('Ø§Ù„'):
         n = n[2:].strip()
     return n
 
 def norm_col(col):
     from sqlalchemy.sql import func
-    c = func.replace(col, 'أ', 'ا')
-    c = func.replace(c, 'إ', 'ا')
-    c = func.replace(c, 'آ', 'ا')
-    c = func.replace(c, 'ة', 'ه')
-    c = func.replace(c, 'ى', 'ي')
+    c = func.replace(col, 'Ø£', 'Ø§')
+    c = func.replace(c, 'Ø¥', 'Ø§')
+    c = func.replace(c, 'Ø¢', 'Ø§')
+    c = func.replace(c, 'Ø©', 'Ù‡')
+    c = func.replace(c, 'Ù‰', 'ÙŠ')
     return c
 
 def norm_region_col(col):
     from sqlalchemy.sql import func
     c = norm_col(col)
-    return func.regexp_replace(c, '^ال', '')
+    return func.regexp_replace(c, '^Ø§Ù„', '')
 
 
 import redis
@@ -277,8 +277,8 @@ app.include_router(duplicate_router)
 app.include_router(wallet_router.router)
 
 app.include_router(ai_router)
-from smart_search_router import smart_search_router
-app.include_router(smart_search_router)
+# from smart_search_router import smart_search_router
+# app.include_router(smart_search_router)
 app.include_router(media_router)
 app.include_router(og_router)
 app.include_router(auth.router)
@@ -420,19 +420,19 @@ def read_categories(skip: int = 0, limit: int = 20000, with_ads_only: bool = Fal
         target_loc = location[-1]
         parent_loc = location[-2] if len(location) > 1 else None
         
-        if target_loc == "محافظة العاصمة": target_loc = "عمان"
-        elif target_loc.startswith("محافظة "): target_loc = target_loc.replace("محافظة ", "")
+        if target_loc == "Ù…Ø­Ø§ÙØ¸Ø© Ø§Ù„Ø¹Ø§ØµÙ…Ø©": target_loc = "Ø¹Ù…Ø§Ù†"
+        elif target_loc.startswith("Ù…Ø­Ø§ÙØ¸Ø© "): target_loc = target_loc.replace("Ù…Ø­Ø§ÙØ¸Ø© ", "")
         
         if parent_loc:
-            if parent_loc == "محافظة العاصمة": parent_loc = "عمان"
-            elif parent_loc.startswith("محافظة "): parent_loc = parent_loc.replace("محافظة ", "")
+            if parent_loc == "Ù…Ø­Ø§ÙØ¸Ø© Ø§Ù„Ø¹Ø§ØµÙ…Ø©": parent_loc = "Ø¹Ù…Ø§Ù†"
+            elif parent_loc.startswith("Ù…Ø­Ø§ÙØ¸Ø© "): parent_loc = parent_loc.replace("Ù…Ø­Ø§ÙØ¸Ø© ", "")
             
         target_loc_norm = norm_str(target_loc)
         parent_loc_norm = norm_str(parent_loc) if parent_loc else None
             
         filters = []
-        if target_loc_norm == norm_str("أخرى") and parent_loc_norm:
-            filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc_norm}, أخرى%"))
+        if target_loc_norm == norm_str("Ø£Ø®Ø±Ù‰") and parent_loc_norm:
+            filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc_norm}, Ø£Ø®Ø±Ù‰%"))
             filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc_norm}, other%"))
         else:
             city = db.query(models.City).filter(norm_col(models.City.name_ar) == target_loc_norm).first()
@@ -840,25 +840,25 @@ from sqlalchemy.sql.expression import literal
 
 
 SEARCH_SYNONYMS = {
-    "سياره": ["سياره", "سيارات", "مركبه", "عربيه"],
-    "سيارات": ["سيارات", "سياره", "مركبات", "عربيات"],
-    "شقه": ["شقه", "شقق", "استوديو", "ستوديو", "سكن", "شقة"],
-    "شقق": ["شقق", "شقه", "استوديوهات", "ستوديوهات", "سكنات", "شقة"],
-    "بيت": ["بيت", "بيوت", "منزل", "فيلا", "فيلات", "فلل", "منازل"],
-    "بيوت": ["بيوت", "بيت", "منازل", "فلل", "فيلا", "فيلات", "منزل"],
-    "فيلا": ["فيلا", "فيلات", "فلل", "بيت", "بيوت", "منزل"],
-    "فيلات": ["فيلات", "فيلا", "فلل", "بيت", "بيوت", "منازل"],
-    "فلل": ["فلل", "فيلا", "فيلات", "بيوت", "بيت", "منازل"],
-    "محل": ["محل", "محلات", "دكان", "معرض"],
-    "مخزن": ["مخزن", "مخازن", "مستودع", "مستودعات"],
-    "مكتب": ["مكتب", "مكاتب", "شركه", "شركات"],
-    "مزرعه": ["مزرعه", "مزرعة", "مزارع"],
-    "جوال": ["جوال", "جوالات", "موبايل", "تلفون", "هاتف"],
-    "جوالات": ["جوالات", "جوال", "موبايلات", "تلفونات", "هواتف"],
-    "وظايف": ["وظايف", "عمل", "شغل", "توظيف", "وظيفه"],
-    "وظيفه": ["وظيفه", "وظايف", "عمل", "شغل", "توظيف"],
-    "بنات": ["بنات", "اناث", "بنت", "انثي"],
-    "شباب": ["شباب", "ذكور", "شاب", "ذكر"]
+    "Ø³ÙŠØ§Ø±Ù‡": ["Ø³ÙŠØ§Ø±Ù‡", "Ø³ÙŠØ§Ø±Ø§Øª", "Ù…Ø±ÙƒØ¨Ù‡", "Ø¹Ø±Ø¨ÙŠÙ‡"],
+    "Ø³ÙŠØ§Ø±Ø§Øª": ["Ø³ÙŠØ§Ø±Ø§Øª", "Ø³ÙŠØ§Ø±Ù‡", "Ù…Ø±ÙƒØ¨Ø§Øª", "Ø¹Ø±Ø¨ÙŠØ§Øª"],
+    "Ø´Ù‚Ù‡": ["Ø´Ù‚Ù‡", "Ø´Ù‚Ù‚", "Ø§Ø³ØªÙˆØ¯ÙŠÙˆ", "Ø³ØªÙˆØ¯ÙŠÙˆ", "Ø³ÙƒÙ†", "Ø´Ù‚Ø©"],
+    "Ø´Ù‚Ù‚": ["Ø´Ù‚Ù‚", "Ø´Ù‚Ù‡", "Ø§Ø³ØªÙˆØ¯ÙŠÙˆÙ‡Ø§Øª", "Ø³ØªÙˆØ¯ÙŠÙˆÙ‡Ø§Øª", "Ø³ÙƒÙ†Ø§Øª", "Ø´Ù‚Ø©"],
+    "Ø¨ÙŠØª": ["Ø¨ÙŠØª", "Ø¨ÙŠÙˆØª", "Ù…Ù†Ø²Ù„", "ÙÙŠÙ„Ø§", "ÙÙŠÙ„Ø§Øª", "ÙÙ„Ù„", "Ù…Ù†Ø§Ø²Ù„"],
+    "Ø¨ÙŠÙˆØª": ["Ø¨ÙŠÙˆØª", "Ø¨ÙŠØª", "Ù…Ù†Ø§Ø²Ù„", "ÙÙ„Ù„", "ÙÙŠÙ„Ø§", "ÙÙŠÙ„Ø§Øª", "Ù…Ù†Ø²Ù„"],
+    "ÙÙŠÙ„Ø§": ["ÙÙŠÙ„Ø§", "ÙÙŠÙ„Ø§Øª", "ÙÙ„Ù„", "Ø¨ÙŠØª", "Ø¨ÙŠÙˆØª", "Ù…Ù†Ø²Ù„"],
+    "ÙÙŠÙ„Ø§Øª": ["ÙÙŠÙ„Ø§Øª", "ÙÙŠÙ„Ø§", "ÙÙ„Ù„", "Ø¨ÙŠØª", "Ø¨ÙŠÙˆØª", "Ù…Ù†Ø§Ø²Ù„"],
+    "ÙÙ„Ù„": ["ÙÙ„Ù„", "ÙÙŠÙ„Ø§", "ÙÙŠÙ„Ø§Øª", "Ø¨ÙŠÙˆØª", "Ø¨ÙŠØª", "Ù…Ù†Ø§Ø²Ù„"],
+    "Ù…Ø­Ù„": ["Ù…Ø­Ù„", "Ù…Ø­Ù„Ø§Øª", "Ø¯ÙƒØ§Ù†", "Ù…Ø¹Ø±Ø¶"],
+    "Ù…Ø®Ø²Ù†": ["Ù…Ø®Ø²Ù†", "Ù…Ø®Ø§Ø²Ù†", "Ù…Ø³ØªÙˆØ¯Ø¹", "Ù…Ø³ØªÙˆØ¯Ø¹Ø§Øª"],
+    "Ù…ÙƒØªØ¨": ["Ù…ÙƒØªØ¨", "Ù…ÙƒØ§ØªØ¨", "Ø´Ø±ÙƒÙ‡", "Ø´Ø±ÙƒØ§Øª"],
+    "Ù…Ø²Ø±Ø¹Ù‡": ["Ù…Ø²Ø±Ø¹Ù‡", "Ù…Ø²Ø±Ø¹Ø©", "Ù…Ø²Ø§Ø±Ø¹"],
+    "Ø¬ÙˆØ§Ù„": ["Ø¬ÙˆØ§Ù„", "Ø¬ÙˆØ§Ù„Ø§Øª", "Ù…ÙˆØ¨Ø§ÙŠÙ„", "ØªÙ„ÙÙˆÙ†", "Ù‡Ø§ØªÙ"],
+    "Ø¬ÙˆØ§Ù„Ø§Øª": ["Ø¬ÙˆØ§Ù„Ø§Øª", "Ø¬ÙˆØ§Ù„", "Ù…ÙˆØ¨Ø§ÙŠÙ„Ø§Øª", "ØªÙ„ÙÙˆÙ†Ø§Øª", "Ù‡ÙˆØ§ØªÙ"],
+    "ÙˆØ¸Ø§ÙŠÙ": ["ÙˆØ¸Ø§ÙŠÙ", "Ø¹Ù…Ù„", "Ø´ØºÙ„", "ØªÙˆØ¸ÙŠÙ", "ÙˆØ¸ÙŠÙÙ‡"],
+    "ÙˆØ¸ÙŠÙÙ‡": ["ÙˆØ¸ÙŠÙÙ‡", "ÙˆØ¸Ø§ÙŠÙ", "Ø¹Ù…Ù„", "Ø´ØºÙ„", "ØªÙˆØ¸ÙŠÙ"],
+    "Ø¨Ù†Ø§Øª": ["Ø¨Ù†Ø§Øª", "Ø§Ù†Ø§Ø«", "Ø¨Ù†Øª", "Ø§Ù†Ø«ÙŠ"],
+    "Ø´Ø¨Ø§Ø¨": ["Ø´Ø¨Ø§Ø¨", "Ø°ÙƒÙˆØ±", "Ø´Ø§Ø¨", "Ø°ÙƒØ±"]
 }
 
 def expand_term_with_synonyms(term):
@@ -884,8 +884,8 @@ def parse_smart_search_query(q: str, db: Session):
     for t in raw_search_terms:
         search_terms.add(t)
         search_terms.update(expand_term_with_synonyms(t))
-        if t == 'استوديوهات': search_terms.add('ستوديوهات')
-        if t == 'ستوديوهات': search_terms.add('استوديوهات')
+        if t == 'Ø§Ø³ØªÙˆØ¯ÙŠÙˆÙ‡Ø§Øª': search_terms.add('Ø³ØªÙˆØ¯ÙŠÙˆÙ‡Ø§Øª')
+        if t == 'Ø³ØªÙˆØ¯ÙŠÙˆÙ‡Ø§Øª': search_terms.add('Ø§Ø³ØªÙˆØ¯ÙŠÙˆÙ‡Ø§Øª')
     
     remaining_terms = set(norm_q.split())
     expanded_remaining = set(remaining_terms)
@@ -930,21 +930,21 @@ def parse_smart_search_query(q: str, db: Session):
     import re
     
     # Extract Price
-    price_match = re.search(r'(?:بسعر|سعر|لا يتجاوز|اقل من|بحدود)\s*(\d+)\s*(ألف|الف|000)?(?!\s*متر|\s*م\b|\s*m\b)', q)
+    price_match = re.search(r'(?:Ø¨Ø³Ø¹Ø±|Ø³Ø¹Ø±|Ù„Ø§ ÙŠØªØ¬Ø§ÙˆØ²|Ø§Ù‚Ù„ Ù…Ù†|Ø¨Ø­Ø¯ÙˆØ¯)\s*(\d+)\s*(Ø£Ù„Ù|Ø§Ù„Ù|000)?(?!\s*Ù…ØªØ±|\s*Ù…\b|\s*m\b)', q)
     if not price_match:
-        price_match = re.search(r'(\d+)\s*(ألف|الف)(?!\s*متر|\s*م\b|\s*m\b)', q)
+        price_match = re.search(r'(\d+)\s*(Ø£Ù„Ù|Ø§Ù„Ù)(?!\s*Ù…ØªØ±|\s*Ù…\b|\s*m\b)', q)
     if price_match:
         base_price = int(price_match.group(1))
-        if price_match.lastgroup and price_match.group(price_match.lastindex) in ["ألف", "الف"]:
+        if price_match.lastgroup and price_match.group(price_match.lastindex) in ["Ø£Ù„Ù", "Ø§Ù„Ù"]:
             base_price *= 1000
-        elif price_match.group(0).endswith("ألف") or price_match.group(0).endswith("الف"):
+        elif price_match.group(0).endswith("Ø£Ù„Ù") or price_match.group(0).endswith("Ø§Ù„Ù"):
              base_price *= 1000
         inferred_tags.append(f"max_price:{base_price}")
         for word in price_match.group(0).split():
             remaining_terms.discard(word)
             
     # Extract Area
-    area_match = re.search(r'(?:مساحة|مساحتها|بمساحة)?\s*(\d+)\s*(?:متر|م\b|m\b)', q)
+    area_match = re.search(r'(?:Ù…Ø³Ø§Ø­Ø©|Ù…Ø³Ø§Ø­ØªÙ‡Ø§|Ø¨Ù…Ø³Ø§Ø­Ø©)?\s*(\d+)\s*(?:Ù…ØªØ±|Ù…\b|m\b)', q)
     if area_match:
         remaining_terms.add(area_match.group(1))
         for word in area_match.group(0).split():
@@ -952,19 +952,19 @@ def parse_smart_search_query(q: str, db: Session):
                 remaining_terms.discard(word)
                 
     # Extract Bedrooms
-    bed_match = re.search(r'(\d+)\s*(?:نوم|غرف)', q)
+    bed_match = re.search(r'(\d+)\s*(?:Ù†ÙˆÙ…|ØºØ±Ù)', q)
     if bed_match:
         inferred_tags.append(f"bedrooms:{bed_match.group(1)}")
         for w in bed_match.group(0).split():
             remaining_terms.discard(w)
-    elif "غرفتين" in remaining_terms:
+    elif "ØºØ±ÙØªÙŠÙ†" in remaining_terms:
         inferred_tags.append("bedrooms:2")
-        remaining_terms.discard("غرفتين")
-        if "وصاله" in remaining_terms: remaining_terms.discard("وصاله")
-        if "وصالة" in remaining_terms: remaining_terms.discard("وصالة")
+        remaining_terms.discard("ØºØ±ÙØªÙŠÙ†")
+        if "ÙˆØµØ§Ù„Ù‡" in remaining_terms: remaining_terms.discard("ÙˆØµØ§Ù„Ù‡")
+        if "ÙˆØµØ§Ù„Ø©" in remaining_terms: remaining_terms.discard("ÙˆØµØ§Ù„Ø©")
     
     # Noise Reduction (using normalized words)
-    noise_words = {"في", "مع", "من", "او", "لا", "الى", "لل", "على", "عن", "ب", "ل", "و", "ف", "ك"}
+    noise_words = {"ÙÙŠ", "Ù…Ø¹", "Ù…Ù†", "Ø§Ùˆ", "Ù„Ø§", "Ø§Ù„Ù‰", "Ù„Ù„", "Ø¹Ù„Ù‰", "Ø¹Ù†", "Ø¨", "Ù„", "Ùˆ", "Ù", "Ùƒ"}
     remaining_terms -= noise_words
     
     # Extract Location using dynamic Cities and Regions from DB
@@ -986,10 +986,10 @@ def parse_smart_search_query(q: str, db: Session):
                 if term == lw:
                     found_term = term
                     break
-                if term.endswith(lw) and len(term) <= len(lw) + 2 and term[:-len(lw)] in ['ب', 'ل', 'و', 'ف', 'كال']:
+                if term.endswith(lw) and len(term) <= len(lw) + 2 and term[:-len(lw)] in ['Ø¨', 'Ù„', 'Ùˆ', 'Ù', 'ÙƒØ§Ù„']:
                     found_term = term
                     break
-                if lw.startswith('ال') and term == f"لل{lw[2:]}":
+                if lw.startswith('Ø§Ù„') and term == f"Ù„Ù„{lw[2:]}":
                     found_term = term
                     break
             if found_term:
@@ -1005,30 +1005,30 @@ def parse_smart_search_query(q: str, db: Session):
             
     # Check multi-word quick tags before single-word
     multi_quick_tags = {
-        "غير مفروشه": "furnished:غير مفروشة", 
-        "طابق ارضي": "floor:الطابق الأرضي",
-        "شبه ارضي": "floor:طابق شبه أرضي",
-        "طابق اول": "floor:1",
-        "طابق ثاني": "floor:2",
-        "طابق ثالث": "floor:3",
-        "طابق رابع": "floor:4",
-        "طابق خامس": "floor:5",
-        "طابق اخير": "floor:الطابق الأخير",
-        "تحت الانشاء": "building_age:تحت الإنشاء",
-        "ايجار يومي": "rent_duration:يومي",
-        "ايجار شهري": "rent_duration:شهري",
-        "ايجار سنوي": "rent_duration:سنوي",
-        "للايجار اليومي": "rent_duration:يومي",
-        "للايجار الشهري": "rent_duration:شهري",
-        "للايجار السنوي": "rent_duration:سنوي",
-        "بدون عموله": "seller_type:المالك",
-        "بدون وسيط": "seller_type:المالك",
-        "طاقه شمسيه": "main_features:طاقة شمسية",
-        "تدفئه مركزيه": "main_features:تدفئة",
-        "تحت البلاط": "main_features:تدفئة",
-        "بئر ماء": "main_features:بئر ماء",
-        "مطبخ راكب": "main_features:مطبخ راكب",
-        "غير مفروش": "furnished:غير مفروشة"
+        "ØºÙŠØ± Ù…ÙØ±ÙˆØ´Ù‡": "furnished:ØºÙŠØ± Ù…ÙØ±ÙˆØ´Ø©", 
+        "Ø·Ø§Ø¨Ù‚ Ø§Ø±Ø¶ÙŠ": "floor:Ø§Ù„Ø·Ø§Ø¨Ù‚ Ø§Ù„Ø£Ø±Ø¶ÙŠ",
+        "Ø´Ø¨Ù‡ Ø§Ø±Ø¶ÙŠ": "floor:Ø·Ø§Ø¨Ù‚ Ø´Ø¨Ù‡ Ø£Ø±Ø¶ÙŠ",
+        "Ø·Ø§Ø¨Ù‚ Ø§ÙˆÙ„": "floor:1",
+        "Ø·Ø§Ø¨Ù‚ Ø«Ø§Ù†ÙŠ": "floor:2",
+        "Ø·Ø§Ø¨Ù‚ Ø«Ø§Ù„Ø«": "floor:3",
+        "Ø·Ø§Ø¨Ù‚ Ø±Ø§Ø¨Ø¹": "floor:4",
+        "Ø·Ø§Ø¨Ù‚ Ø®Ø§Ù…Ø³": "floor:5",
+        "Ø·Ø§Ø¨Ù‚ Ø§Ø®ÙŠØ±": "floor:Ø§Ù„Ø·Ø§Ø¨Ù‚ Ø§Ù„Ø£Ø®ÙŠØ±",
+        "ØªØ­Øª Ø§Ù„Ø§Ù†Ø´Ø§Ø¡": "building_age:ØªØ­Øª Ø§Ù„Ø¥Ù†Ø´Ø§Ø¡",
+        "Ø§ÙŠØ¬Ø§Ø± ÙŠÙˆÙ…ÙŠ": "rent_duration:ÙŠÙˆÙ…ÙŠ",
+        "Ø§ÙŠØ¬Ø§Ø± Ø´Ù‡Ø±ÙŠ": "rent_duration:Ø´Ù‡Ø±ÙŠ",
+        "Ø§ÙŠØ¬Ø§Ø± Ø³Ù†ÙˆÙŠ": "rent_duration:Ø³Ù†ÙˆÙŠ",
+        "Ù„Ù„Ø§ÙŠØ¬Ø§Ø± Ø§Ù„ÙŠÙˆÙ…ÙŠ": "rent_duration:ÙŠÙˆÙ…ÙŠ",
+        "Ù„Ù„Ø§ÙŠØ¬Ø§Ø± Ø§Ù„Ø´Ù‡Ø±ÙŠ": "rent_duration:Ø´Ù‡Ø±ÙŠ",
+        "Ù„Ù„Ø§ÙŠØ¬Ø§Ø± Ø§Ù„Ø³Ù†ÙˆÙŠ": "rent_duration:Ø³Ù†ÙˆÙŠ",
+        "Ø¨Ø¯ÙˆÙ† Ø¹Ù…ÙˆÙ„Ù‡": "seller_type:Ø§Ù„Ù…Ø§Ù„Ùƒ",
+        "Ø¨Ø¯ÙˆÙ† ÙˆØ³ÙŠØ·": "seller_type:Ø§Ù„Ù…Ø§Ù„Ùƒ",
+        "Ø·Ø§Ù‚Ù‡ Ø´Ù…Ø³ÙŠÙ‡": "main_features:Ø·Ø§Ù‚Ø© Ø´Ù…Ø³ÙŠØ©",
+        "ØªØ¯ÙØ¦Ù‡ Ù…Ø±ÙƒØ²ÙŠÙ‡": "main_features:ØªØ¯ÙØ¦Ø©",
+        "ØªØ­Øª Ø§Ù„Ø¨Ù„Ø§Ø·": "main_features:ØªØ¯ÙØ¦Ø©",
+        "Ø¨Ø¦Ø± Ù…Ø§Ø¡": "main_features:Ø¨Ø¦Ø± Ù…Ø§Ø¡",
+        "Ù…Ø·Ø¨Ø® Ø±Ø§ÙƒØ¨": "main_features:Ù…Ø·Ø¨Ø® Ø±Ø§ÙƒØ¨",
+        "ØºÙŠØ± Ù…ÙØ±ÙˆØ´": "furnished:ØºÙŠØ± Ù…ÙØ±ÙˆØ´Ø©"
     }
     for k, v in multi_quick_tags.items():
         tag_words = set(k.split())
@@ -1038,20 +1038,20 @@ def parse_smart_search_query(q: str, db: Session):
                 
     # Check single-word quick tags
     single_quick_tags = {
-        "مفروشه": "furnished:مفروشة",
-        "مفروش": "furnished:مفروشة",
-        "بالتقسيط": "installment_possible:نعم",
-        "تقسيط": "installment_possible:نعم",
-        "جديده": "building_age:جديد لم يسكن",
-        "ارضيه": "floor:الطابق الأرضي",
-        "مسبح": "main_features:مسبح",
-        "ومسبح": "main_features:مسبح",
-        "تكييف": "main_features:تكييف",
-        "مصعد": "main_features:مصعد",
-        "كراج": "main_features:كراج",
-        "انترنت": "main_features:إنترنت",
-        "استوديو": "bedrooms:0",
-        "استوديوهات": "bedrooms:0"
+        "Ù…ÙØ±ÙˆØ´Ù‡": "furnished:Ù…ÙØ±ÙˆØ´Ø©",
+        "Ù…ÙØ±ÙˆØ´": "furnished:Ù…ÙØ±ÙˆØ´Ø©",
+        "Ø¨Ø§Ù„ØªÙ‚Ø³ÙŠØ·": "installment_possible:Ù†Ø¹Ù…",
+        "ØªÙ‚Ø³ÙŠØ·": "installment_possible:Ù†Ø¹Ù…",
+        "Ø¬Ø¯ÙŠØ¯Ù‡": "building_age:Ø¬Ø¯ÙŠØ¯ Ù„Ù… ÙŠØ³ÙƒÙ†",
+        "Ø§Ø±Ø¶ÙŠÙ‡": "floor:Ø§Ù„Ø·Ø§Ø¨Ù‚ Ø§Ù„Ø£Ø±Ø¶ÙŠ",
+        "Ù…Ø³Ø¨Ø­": "main_features:Ù…Ø³Ø¨Ø­",
+        "ÙˆÙ…Ø³Ø¨Ø­": "main_features:Ù…Ø³Ø¨Ø­",
+        "ØªÙƒÙŠÙŠÙ": "main_features:ØªÙƒÙŠÙŠÙ",
+        "Ù…ØµØ¹Ø¯": "main_features:Ù…ØµØ¹Ø¯",
+        "ÙƒØ±Ø§Ø¬": "main_features:ÙƒØ±Ø§Ø¬",
+        "Ø§Ù†ØªØ±Ù†Øª": "main_features:Ø¥Ù†ØªØ±Ù†Øª",
+        "Ø§Ø³ØªÙˆØ¯ÙŠÙˆ": "bedrooms:0",
+        "Ø§Ø³ØªÙˆØ¯ÙŠÙˆÙ‡Ø§Øª": "bedrooms:0"
     }
     for k, v in single_quick_tags.items():
         if k in remaining_terms:
@@ -1171,7 +1171,7 @@ def read_ads(
     query = db.query(models.Ad).outerjoin(models.User, models.Ad.user_id == models.User.id)
     
     if location_search:
-        query = query.filter(norm_col(models.Ad.location).ilike(f"%{norm_str(location_search).replace('،', ',')}%"))
+        query = query.filter(norm_col(models.Ad.location).ilike(f"%{norm_str(location_search).replace('ØŒ', ',')}%"))
     
     if phone:
         from sqlalchemy import cast, String
@@ -1210,7 +1210,13 @@ def read_ads(
         # Log the search query and results count in background
         if background_tasks and log_query and log_query.strip():
             user_id_val = current_user.id if hasattr(current_user, 'id') else None
-            background_tasks.add_task(log_search_query_task, log_query, len(ranked_ad_ids), user_id_val, category_id, tags)
+            parsed_json = {k: v for k, v in {
+                "category_id": category_id, "section": section, "location": location,
+                "min_price": min_price, "max_price": max_price, "is_hot": is_hot,
+                "source_type": source_type, "sort_by": sort_by, "tags": tags,
+                "location_search": location_search
+            }.items() if v is not None}
+            background_tasks.add_task(log_search_query_task, log_query, len(ranked_ad_ids), user_id_val, category_id, tags, parsed_json)
 
         if not ranked_ad_ids:
             return []
@@ -1226,15 +1232,21 @@ def read_ads(
     elif background_tasks and log_query and log_query.strip():
         user_id_val = current_user.id if hasattr(current_user, 'id') else None
         total_results = query.count()
-        background_tasks.add_task(log_search_query_task, log_query, total_results, user_id_val, category_id, tags)
+        parsed_json = {k: v for k, v in {
+            "category_id": category_id, "section": section, "location": location,
+            "min_price": min_price, "max_price": max_price, "is_hot": is_hot,
+            "source_type": source_type, "sort_by": sort_by, "tags": tags,
+            "location_search": location_search
+        }.items() if v is not None}
+        background_tasks.add_task(log_search_query_task, log_query, total_results, user_id_val, category_id, tags, parsed_json)
         
     if location and not ignore_location:
         parent_loc = None
         target_locs = []
         
         first_loc = location[0]
-        if first_loc == "محافظة العاصمة": first_loc = "عمان"
-        elif first_loc.startswith("محافظة "): first_loc = first_loc.replace("محافظة ", "")
+        if first_loc == "Ù…Ø­Ø§ÙØ¸Ø© Ø§Ù„Ø¹Ø§ØµÙ…Ø©": first_loc = "Ø¹Ù…Ø§Ù†"
+        elif first_loc.startswith("Ù…Ø­Ø§ÙØ¸Ø© "): first_loc = first_loc.replace("Ù…Ø­Ø§ÙØ¸Ø© ", "")
         
         target_loc_norm = norm_str(first_loc)
         city = db.query(models.City).filter(norm_col(models.City.name_ar) == target_loc_norm).first()
@@ -1249,44 +1261,44 @@ def read_ads(
             filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}%"))
         elif parent_loc and target_locs:
             for t_loc in target_locs:
-                if t_loc == "محافظة العاصمة": t_loc = "عمان"
-                elif t_loc.startswith("محافظة "): t_loc = t_loc.replace("محافظة ", "")
+                if t_loc == "Ù…Ø­Ø§ÙØ¸Ø© Ø§Ù„Ø¹Ø§ØµÙ…Ø©": t_loc = "Ø¹Ù…Ø§Ù†"
+                elif t_loc.startswith("Ù…Ø­Ø§ÙØ¸Ø© "): t_loc = t_loc.replace("Ù…Ø­Ø§ÙØ¸Ø© ", "")
                 t_loc_norm = norm_str(t_loc)
                 
-                if t_loc_norm == norm_str("أخرى"):
-                    filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}, أخرى%"))
+                if t_loc_norm == norm_str("Ø£Ø®Ø±Ù‰"):
+                    filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}, Ø£Ø®Ø±Ù‰%"))
                     filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}, other%"))
                 else:
-                    if t_loc_norm.startswith("ال"):
+                    if t_loc_norm.startswith("Ø§Ù„"):
                         filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}, {t_loc_norm}%"))
                         filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}, {t_loc_norm[2:]}%"))
                     else:
                         filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}, {t_loc_norm}%"))
-                        filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}, ال{t_loc_norm}%"))
+                        filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}, Ø§Ù„{t_loc_norm}%"))
         else:
             for t_loc in target_locs:
-                if t_loc == "محافظة العاصمة": t_loc = "عمان"
-                elif t_loc.startswith("محافظة "): t_loc = t_loc.replace("محافظة ", "")
+                if t_loc == "Ù…Ø­Ø§ÙØ¸Ø© Ø§Ù„Ø¹Ø§ØµÙ…Ø©": t_loc = "Ø¹Ù…Ø§Ù†"
+                elif t_loc.startswith("Ù…Ø­Ø§ÙØ¸Ø© "): t_loc = t_loc.replace("Ù…Ø­Ø§ÙØ¸Ø© ", "")
                 t_loc_norm = norm_str(t_loc)
                 
-                if t_loc_norm == norm_str("أخرى"):
-                    filters.append(norm_col(models.Ad.location).ilike(f"%أخرى%"))
+                if t_loc_norm == norm_str("Ø£Ø®Ø±Ù‰"):
+                    filters.append(norm_col(models.Ad.location).ilike(f"%Ø£Ø®Ø±Ù‰%"))
                     filters.append(norm_col(models.Ad.location).ilike(f"%other%"))
                 else:
-                    if t_loc_norm.startswith("ال"):
+                    if t_loc_norm.startswith("Ø§Ù„"):
                         filters.append(norm_col(models.Ad.location).ilike(f"%{t_loc_norm}%"))
                         filters.append(norm_col(models.Ad.location).ilike(f"%{t_loc_norm[2:]}%"))
                     else:
                         filters.append(norm_col(models.Ad.location).ilike(f"%{t_loc_norm}%"))
-                        filters.append(norm_col(models.Ad.location).ilike(f"%ال{t_loc_norm}%"))
+                        filters.append(norm_col(models.Ad.location).ilike(f"%Ø§Ù„{t_loc_norm}%"))
                     
         if filters:
             query = query.filter(or_(*filters))
             
     if only_others:
         query = query.filter(or_(
-            models.Ad.location.ilike("%أخرى%"),
-            models.Ad.location.ilike("%اخرى%"),
+            models.Ad.location.ilike("%Ø£Ø®Ø±Ù‰%"),
+            models.Ad.location.ilike("%Ø§Ø®Ø±Ù‰%"),
             models.Ad.location.ilike("%other%")
         ))
         
@@ -1378,12 +1390,12 @@ def read_ads(
                         conds.append(models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%7%'))
                         conds.append(models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%6%'))
                         conds.append(models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%7%'))
-                    elif val == 'ستوديو':
+                    elif val == 'Ø³ØªÙˆØ¯ÙŠÙˆ':
                         conds.append(models.Ad.attributes['rooms'].astext == '0')
-                        conds.append(models.Ad.attributes['rooms'].astext == 'ستوديو')
-                        conds.append(models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%ستوديو%'))
+                        conds.append(models.Ad.attributes['rooms'].astext == 'Ø³ØªÙˆØ¯ÙŠÙˆ')
+                        conds.append(models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%Ø³ØªÙˆØ¯ÙŠÙˆ%'))
                         conds.append(models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%0%'))
-                        conds.append(models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%ستوديو%'))
+                        conds.append(models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%Ø³ØªÙˆØ¯ÙŠÙˆ%'))
                         conds.append(models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%0%'))
                     else:
                         conds.append(models.Ad.attributes['rooms'].astext == val)
@@ -1597,8 +1609,8 @@ def aggregate_ads(
         
     if only_others:
         query = query.filter(or_(
-            models.Ad.location.ilike("%أخرى%"),
-            models.Ad.location.ilike("%اخرى%"),
+            models.Ad.location.ilike("%Ø£Ø®Ø±Ù‰%"),
+            models.Ad.location.ilike("%Ø§Ø®Ø±Ù‰%"),
             models.Ad.location.ilike("%other%")
         ))
     
@@ -1655,80 +1667,74 @@ def aggregate_ads(
         query = query.filter(models.Ad.source_type == source_type)
         
     if tags and len(tags) > 0:
-        from collections import defaultdict
-        grouped_tags = defaultdict(list)
-        generic_tags = []
-        for t in tags:
-            if ":" in t:
-                prefix, val = t.split(":", 1)
-                vals = val.split(",")
-                grouped_tags[prefix].extend(vals)
-            else:
-                generic_tags.append(t)
-                
-        for prefix, vals in grouped_tags.items():
-            if prefix == "bedrooms":
-                conditions = []
-                for v in vals:
-                    if v == '+6' or v == '6+':
+        for tag in tags:
+            if ":" in tag:
+                prefix, val = tag.split(":", 1)
+                if prefix == "bedrooms":
+                    vals = val.split(",")
+                    conditions = []
+                    for v in vals:
+                        if v == '+6' or v == '6+':
+                            conditions.extend([
+                                models.Ad.attributes['rooms'].astext == '+6',
+                                models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%6%'),
+                                models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%7%'),
+                                models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%6%'),
+                                models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%7%')
+                            ])
+                        elif v == 'Ø³ØªÙˆØ¯ÙŠÙˆ':
+                            conditions.extend([
+                                models.Ad.attributes['rooms'].astext == '0',
+                                models.Ad.attributes['rooms'].astext == 'Ø³ØªÙˆØ¯ÙŠÙˆ',
+                                models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%Ø³ØªÙˆØ¯ÙŠÙˆ%'),
+                                models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%0%'),
+                                models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%Ø³ØªÙˆØ¯ÙŠÙˆ%'),
+                                models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%0%')
+                            ])
+                        else:
+                            conditions.extend([
+                                models.Ad.attributes['rooms'].astext == v,
+                                models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike(f"%{v}%"),
+                                models.Ad.attributes['dynamic_data']['rooms'].astext.ilike(f"%{v}%")
+                            ])
+                    query = query.filter(or_(*conditions))
+                elif prefix == "bathrooms":
+                    vals = val.split(",")
+                    conditions = []
+                    for v in vals:
+                        if v == '+6' or v == '6+':
+                            conditions.extend([
+                                models.Ad.attributes['bathrooms'].astext == '+6',
+                                models.Ad.attributes['dynamic_data']['bathrooms'].astext.ilike('%6%'),
+                                models.Ad.attributes['dynamic_data']['bathrooms'].astext.ilike('%7%')
+                            ])
+                        else:
+                            conditions.extend([
+                                models.Ad.attributes['bathrooms'].astext == v,
+                                models.Ad.attributes['dynamic_data']['bathrooms'].astext.ilike(f"%{v}%")
+                            ])
+                    query = query.filter(or_(*conditions))
+                elif prefix == "floor":
+                    vals = val.split(",")
+                    conditions = []
+                    for v in vals:
                         conditions.extend([
-                            models.Ad.attributes['rooms'].astext == '+6',
-                            models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%6%'),
-                            models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%7%'),
-                            models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%6%'),
-                            models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%7%')
+                            models.Ad.attributes['floor'].astext == v,
+                            models.Ad.attributes['dynamic_data']['floor'].astext == v
                         ])
-                    elif v == 'ستوديو':
+                    query = query.filter(or_(*conditions))
+                elif prefix == "furnished":
+                    vals = val.split(",")
+                    conditions = []
+                    for v in vals:
                         conditions.extend([
-                            models.Ad.attributes['rooms'].astext == '0',
-                            models.Ad.attributes['rooms'].astext == 'ستوديو',
-                            models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%ستوديو%'),
-                            models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%0%'),
-                            models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%ستوديو%'),
-                            models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%0%')
+                            models.Ad.attributes['furnished'].astext == v,
+                            models.Ad.attributes['dynamic_data']['furnishing'].astext == v,
+                            models.Ad.attributes['dynamic_data']['furnished'].astext == v
                         ])
-                    else:
-                        conditions.extend([
-                            models.Ad.attributes['rooms'].astext == v,
-                            models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike(f"%{v}%"),
-                            models.Ad.attributes['dynamic_data']['rooms'].astext.ilike(f"%{v}%")
-                        ])
-                query = query.filter(or_(*conditions))
-            elif prefix == "bathrooms":
-                conditions = []
-                for v in vals:
-                    if v == '+6' or v == '6+':
-                        conditions.extend([
-                            models.Ad.attributes['bathrooms'].astext == '+6',
-                            models.Ad.attributes['dynamic_data']['bathrooms'].astext.ilike('%6%'),
-                            models.Ad.attributes['dynamic_data']['bathrooms'].astext.ilike('%7%')
-                        ])
-                    else:
-                        conditions.extend([
-                            models.Ad.attributes['bathrooms'].astext == v,
-                            models.Ad.attributes['dynamic_data']['bathrooms'].astext.ilike(f"%{v}%")
-                        ])
-                query = query.filter(or_(*conditions))
-            elif prefix == "floor":
-                conditions = []
-                for v in vals:
-                    conditions.extend([
-                        models.Ad.attributes['floor'].astext == v,
-                        models.Ad.attributes['dynamic_data']['floor'].astext == v
-                    ])
-                query = query.filter(or_(*conditions))
-            elif prefix == "furnished":
-                conditions = []
-                for v in vals:
-                    conditions.extend([
-                        models.Ad.attributes['furnished'].astext == v,
-                        models.Ad.attributes['dynamic_data']['furnishing'].astext == v,
-                        models.Ad.attributes['dynamic_data']['furnished'].astext == v
-                    ])
-                query = query.filter(or_(*conditions))
-            elif prefix == "min_area":
-                v = int(vals[0]) if vals[0].isdigit() else 0
-                if v > 0:
+                    query = query.filter(or_(*conditions))
+                elif prefix == "min_area" and val.isdigit():
+                    v = int(val)
                     area_conds = [models.AdSearchIndex.build_area >= float(v)]
                     try:
                         numeric_area = func.nullif(func.regexp_replace(models.Ad.attributes['dynamic_data']['area'].astext, '[^0-9]', '', 'g'), '')
@@ -1741,9 +1747,8 @@ def aggregate_ads(
                         area_conds.append(numeric_area_top.cast(Integer) >= v)
                     except: pass
                     query = query.filter(or_(*area_conds))
-            elif prefix == "max_area":
-                v = int(vals[0]) if vals[0].isdigit() else 0
-                if v > 0:
+                elif prefix == "max_area" and val.isdigit():
+                    v = int(val)
                     area_conds = [models.AdSearchIndex.build_area <= float(v)]
                     try:
                         numeric_area = func.nullif(func.regexp_replace(models.Ad.attributes['dynamic_data']['area'].astext, '[^0-9]', '', 'g'), '')
@@ -1756,32 +1761,16 @@ def aggregate_ads(
                         area_conds.append(numeric_area_top.cast(Integer) <= v)
                     except: pass
                     query = query.filter(or_(*area_conds))
-            elif prefix == "period":
-                query = query.filter(cast(models.AdSearchIndex.search_text, String).ilike(f"%period:{vals[0]}%"))
+                elif prefix == "period":
+                    query = query.filter(cast(models.AdSearchIndex.search_text, String).ilike(f"%period:{val}%"))
+                else:
+                    query = query.filter(cast(models.AdSearchIndex.attributes_jsonb, String).ilike(f"%{tag}%"))
             else:
-                for v in vals:
-                    query = query.filter(cast(models.AdSearchIndex.attributes_jsonb, String).ilike(f"%{prefix}:{v}%"))
-                    
-        for t in generic_tags:
-            query = query.filter(cast(models.AdSearchIndex.attributes_jsonb, String).ilike(f"%{t}%"))
+                query = query.filter(cast(models.AdSearchIndex.attributes_jsonb, String).ilike(f"%{tag}%"))
             
     if group_by == 'location':
-        from sqlalchemy import case
-        results = query.with_entities(
-            models.Ad.location,
-            func.count(models.Ad.id),
-            func.sum(case((models.Ad.market_price_status == 'BELOW_MARKET', 1), else_=0)),
-            func.avg(models.AdSearchIndex.price),
-            func.avg(models.AdSearchIndex.build_area)
-        ).group_by(models.Ad.location).all()
-        
-        return [{
-            "group": row[0] or "Unknown",
-            "count": row[1] or 0,
-            "below_market_count": row[2] or 0,
-            "avg_price": float(row[3]) if row[3] is not None else 0.0,
-            "avg_area": float(row[4]) if row[4] is not None else 0.0,
-        } for row in results]
+        results = query.with_entities(models.Ad.location, func.count(models.Ad.id)).group_by(models.Ad.location).all()
+        return [{"group": row[0] or "Unknown", "count": row[1]} for row in results]
     elif group_by == 'category_id':
         results = query.with_entities(models.AdSearchIndex.category_id, func.count(models.Ad.id)).group_by(models.AdSearchIndex.category_id).all()
         return [{"group": str(row[0]), "count": row[1]} for row in results]
@@ -1822,8 +1811,8 @@ def get_ads_count(
         
     if only_others:
         query = query.filter(or_(
-            models.Ad.location.ilike("%أخرى%"),
-            models.Ad.location.ilike("%اخرى%"),
+            models.Ad.location.ilike("%Ø£Ø®Ø±Ù‰%"),
+            models.Ad.location.ilike("%Ø§Ø®Ø±Ù‰%"),
             models.Ad.location.ilike("%other%")
         ))
     
@@ -1849,8 +1838,8 @@ def get_ads_count(
         target_locs = []
         
         first_loc = location[0]
-        if first_loc == "محافظة العاصمة": first_loc = "عمان"
-        elif first_loc.startswith("محافظة "): first_loc = first_loc.replace("محافظة ", "")
+        if first_loc == "Ù…Ø­Ø§ÙØ¸Ø© Ø§Ù„Ø¹Ø§ØµÙ…Ø©": first_loc = "Ø¹Ù…Ø§Ù†"
+        elif first_loc.startswith("Ù…Ø­Ø§ÙØ¸Ø© "): first_loc = first_loc.replace("Ù…Ø­Ø§ÙØ¸Ø© ", "")
         
         target_loc_norm = norm_str(first_loc)
         city = db.query(models.City).filter(norm_col(models.City.name_ar) == target_loc_norm).first()
@@ -1865,36 +1854,36 @@ def get_ads_count(
             filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}%"))
         elif parent_loc and target_locs:
             for t_loc in target_locs:
-                if t_loc == "محافظة العاصمة": t_loc = "عمان"
-                elif t_loc.startswith("محافظة "): t_loc = t_loc.replace("محافظة ", "")
+                if t_loc == "Ù…Ø­Ø§ÙØ¸Ø© Ø§Ù„Ø¹Ø§ØµÙ…Ø©": t_loc = "Ø¹Ù…Ø§Ù†"
+                elif t_loc.startswith("Ù…Ø­Ø§ÙØ¸Ø© "): t_loc = t_loc.replace("Ù…Ø­Ø§ÙØ¸Ø© ", "")
                 t_loc_norm = norm_str(t_loc)
                 
-                if t_loc_norm == norm_str("أخرى"):
-                    filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}, أخرى%"))
+                if t_loc_norm == norm_str("Ø£Ø®Ø±Ù‰"):
+                    filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}, Ø£Ø®Ø±Ù‰%"))
                     filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}, other%"))
                 else:
-                    if t_loc_norm.startswith("ال"):
+                    if t_loc_norm.startswith("Ø§Ù„"):
                         filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}, {t_loc_norm}%"))
                         filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}, {t_loc_norm[2:]}%"))
                     else:
                         filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}, {t_loc_norm}%"))
-                        filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}, ال{t_loc_norm}%"))
+                        filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}, Ø§Ù„{t_loc_norm}%"))
         else:
             for t_loc in target_locs:
-                if t_loc == "محافظة العاصمة": t_loc = "عمان"
-                elif t_loc.startswith("محافظة "): t_loc = t_loc.replace("محافظة ", "")
+                if t_loc == "Ù…Ø­Ø§ÙØ¸Ø© Ø§Ù„Ø¹Ø§ØµÙ…Ø©": t_loc = "Ø¹Ù…Ø§Ù†"
+                elif t_loc.startswith("Ù…Ø­Ø§ÙØ¸Ø© "): t_loc = t_loc.replace("Ù…Ø­Ø§ÙØ¸Ø© ", "")
                 t_loc_norm = norm_str(t_loc)
                 
-                if t_loc_norm == norm_str("أخرى"):
-                    filters.append(norm_col(models.Ad.location).ilike(f"%أخرى%"))
+                if t_loc_norm == norm_str("Ø£Ø®Ø±Ù‰"):
+                    filters.append(norm_col(models.Ad.location).ilike(f"%Ø£Ø®Ø±Ù‰%"))
                     filters.append(norm_col(models.Ad.location).ilike(f"%other%"))
                 else:
-                    if t_loc_norm.startswith("ال"):
+                    if t_loc_norm.startswith("Ø§Ù„"):
                         filters.append(norm_col(models.Ad.location).ilike(f"%{t_loc_norm}%"))
                         filters.append(norm_col(models.Ad.location).ilike(f"%{t_loc_norm[2:]}%"))
                     else:
                         filters.append(norm_col(models.Ad.location).ilike(f"%{t_loc_norm}%"))
-                        filters.append(norm_col(models.Ad.location).ilike(f"%ال{t_loc_norm}%"))
+                        filters.append(norm_col(models.Ad.location).ilike(f"%Ø§Ù„{t_loc_norm}%"))
                     
         if filters:
             query = query.filter(or_(*filters))
@@ -1987,12 +1976,12 @@ def get_ads_count(
                         conds.append(models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%7%'))
                         conds.append(models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%6%'))
                         conds.append(models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%7%'))
-                    elif val == 'ستوديو':
+                    elif val == 'Ø³ØªÙˆØ¯ÙŠÙˆ':
                         conds.append(models.Ad.attributes['rooms'].astext == '0')
-                        conds.append(models.Ad.attributes['rooms'].astext == 'ستوديو')
-                        conds.append(models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%ستوديو%'))
+                        conds.append(models.Ad.attributes['rooms'].astext == 'Ø³ØªÙˆØ¯ÙŠÙˆ')
+                        conds.append(models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%Ø³ØªÙˆØ¯ÙŠÙˆ%'))
                         conds.append(models.Ad.attributes['dynamic_data']['bedrooms'].astext.ilike('%0%'))
-                        conds.append(models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%ستوديو%'))
+                        conds.append(models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%Ø³ØªÙˆØ¯ÙŠÙˆ%'))
                         conds.append(models.Ad.attributes['dynamic_data']['rooms'].astext.ilike('%0%'))
                     else:
                         conds.append(models.Ad.attributes['rooms'].astext == val)
@@ -2181,7 +2170,7 @@ def update_ad_draft(
             if not attributes.get("image_urls") or len(attributes.get("image_urls", [])) < 3:
                 raise HTTPException(
                     status_code=400,
-                    detail="لابد من رفع 3 صور على الأقل لنشر الإعلان"
+                    detail="Ù„Ø§Ø¨Ø¯ Ù…Ù† Ø±ÙØ¹ 3 ØµÙˆØ± Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„ Ù„Ù†Ø´Ø± Ø§Ù„Ø¥Ø¹Ù„Ø§Ù†"
                 )
         setattr(db_ad, key, value)
         
@@ -2264,7 +2253,7 @@ def create_ad(
         if user.banned_from_posting_until and user.banned_from_posting_until > now:
             raise HTTPException(
                 status_code=403, 
-                detail=f"أنت محظور من إضافة الإعلانات حتى {user.banned_from_posting_until.strftime('%Y-%m-%d %H:%M:%S')} بسبب تكرار المخالفات."
+                detail=f"Ø£Ù†Øª Ù…Ø­Ø¸ÙˆØ± Ù…Ù† Ø¥Ø¶Ø§ÙØ© Ø§Ù„Ø¥Ø¹Ù„Ø§Ù†Ø§Øª Ø­ØªÙ‰ {user.banned_from_posting_until.strftime('%Y-%m-%d %H:%M:%S')} Ø¨Ø³Ø¨Ø¨ ØªÙƒØ±Ø§Ø± Ø§Ù„Ù…Ø®Ø§Ù„ÙØ§Øª."
             )
             
         # 2. Fetch All Active Ads for AI comparison
@@ -2302,16 +2291,16 @@ def create_ad(
                     
                     if user.penalty_tier == 1:
                         ban_duration = timedelta(hours=6)
-                        ban_str = "6 ساعات"
+                        ban_str = "6 Ø³Ø§Ø¹Ø§Øª"
                     elif user.penalty_tier == 2:
                         ban_duration = timedelta(days=3)
-                        ban_str = "3 أيام"
+                        ban_str = "3 Ø£ÙŠØ§Ù…"
                     elif user.penalty_tier == 3:
                         ban_duration = timedelta(days=30)
-                        ban_str = "شهر واحد"
+                        ban_str = "Ø´Ù‡Ø± ÙˆØ§Ø­Ø¯"
                     else:
                         ban_duration = timedelta(days=365)
-                        ban_str = "سنة كاملة"
+                        ban_str = "Ø³Ù†Ø© ÙƒØ§Ù…Ù„Ø©"
                         
                     user.banned_from_posting_until = now + ban_duration
                     user.last_penalty_at = now
@@ -2320,14 +2309,14 @@ def create_ad(
                     
                     raise HTTPException(
                         status_code=403,
-                        detail=f"تم حظرك من إضافة الإعلانات لمدة {ban_str} لتجاوزك الحد المسموح للإعلانات المكررة."
+                        detail=f"ØªÙ… Ø­Ø¸Ø±Ùƒ Ù…Ù† Ø¥Ø¶Ø§ÙØ© Ø§Ù„Ø¥Ø¹Ù„Ø§Ù†Ø§Øª Ù„Ù…Ø¯Ø© {ban_str} Ù„ØªØ¬Ø§ÙˆØ²Ùƒ Ø§Ù„Ø­Ø¯ Ø§Ù„Ù…Ø³Ù…ÙˆØ­ Ù„Ù„Ø¥Ø¹Ù„Ø§Ù†Ø§Øª Ø§Ù„Ù…ÙƒØ±Ø±Ø©."
                     )
                 else:
                     db.commit()
                     remaining = 5 - user.duplicate_attempts
                     raise HTTPException(
                         status_code=400,
-                        detail=f"إعلان مكرر! يرجى عدم تكرار نشر نفس الإعلان. لديك {remaining} محاولات متبقية قبل الحظر المؤقت."
+                        detail=f"Ø¥Ø¹Ù„Ø§Ù† Ù…ÙƒØ±Ø±! ÙŠØ±Ø¬Ù‰ Ø¹Ø¯Ù… ØªÙƒØ±Ø§Ø± Ù†Ø´Ø± Ù†ÙØ³ Ø§Ù„Ø¥Ø¹Ù„Ø§Ù†. Ù„Ø¯ÙŠÙƒ {remaining} Ù…Ø­Ø§ÙˆÙ„Ø§Øª Ù…ØªØ¨Ù‚ÙŠØ© Ù‚Ø¨Ù„ Ø§Ù„Ø­Ø¸Ø± Ø§Ù„Ù…Ø¤Ù‚Øª."
                     )
 
     ad_data = ad.model_dump()
@@ -2374,10 +2363,10 @@ def create_ad(
         ad_data["location"] = f"{attributes['city']}, {attributes['region']}"
     elif "location" in ad_data and ad_data["location"]:
         loc = ad_data["location"]
-        if "،" in loc or "," in loc:
-            parts = [p.strip() for p in loc.replace("،", ",").split(",")]
+        if "ØŒ" in loc or "," in loc:
+            parts = [p.strip() for p in loc.replace("ØŒ", ",").split(",")]
             if len(parts) == 2:
-                city_names = {"عمان", "إربد", "اربد", "الزرقاء", "زرقاء", "المفرق", "مفرق", "جرش", "عجلون", "البلقاء", "مادبا", "الكرك", "كرك", "الطفيلة", "طفيلة", "معان", "العقبة", "عقبة", "محافظة العاصمة"}
+                city_names = {"Ø¹Ù…Ø§Ù†", "Ø¥Ø±Ø¨Ø¯", "Ø§Ø±Ø¨Ø¯", "Ø§Ù„Ø²Ø±Ù‚Ø§Ø¡", "Ø²Ø±Ù‚Ø§Ø¡", "Ø§Ù„Ù…ÙØ±Ù‚", "Ù…ÙØ±Ù‚", "Ø¬Ø±Ø´", "Ø¹Ø¬Ù„ÙˆÙ†", "Ø§Ù„Ø¨Ù„Ù‚Ø§Ø¡", "Ù…Ø§Ø¯Ø¨Ø§", "Ø§Ù„ÙƒØ±Ùƒ", "ÙƒØ±Ùƒ", "Ø§Ù„Ø·ÙÙŠÙ„Ø©", "Ø·ÙÙŠÙ„Ø©", "Ù…Ø¹Ø§Ù†", "Ø§Ù„Ø¹Ù‚Ø¨Ø©", "Ø¹Ù‚Ø¨Ø©", "Ù…Ø­Ø§ÙØ¸Ø© Ø§Ù„Ø¹Ø§ØµÙ…Ø©"}
                 if parts[1] in city_names:
                     ad_data["location"] = f"{parts[1]}, {parts[0]}"
 
@@ -2414,8 +2403,8 @@ def create_ad(
     background_tasks.add_task(
         send_personal_notification,
         target_user_id=db_ad.user_id,
-        title="تم نشر إعلانك بنجاح ✅",
-        body=f"إعلانك '{db_ad.title[:50]}' تم نشره بنجاح وأصبح متاحاً للجميع.",
+        title="ØªÙ… Ù†Ø´Ø± Ø¥Ø¹Ù„Ø§Ù†Ùƒ Ø¨Ù†Ø¬Ø§Ø­ âœ…",
+        body=f"Ø¥Ø¹Ù„Ø§Ù†Ùƒ '{db_ad.title[:50]}' ØªÙ… Ù†Ø´Ø±Ù‡ Ø¨Ù†Ø¬Ø§Ø­ ÙˆØ£ØµØ¨Ø­ Ù…ØªØ§Ø­Ø§Ù‹ Ù„Ù„Ø¬Ù…ÙŠØ¹.",
         notification_type="ad_created",
         reference_id=db_ad.id
     )
@@ -2430,7 +2419,7 @@ def create_ad(
     # Check Category Milestones for notifications
     background_tasks.add_task(check_category_milestone_task, db_ad.category_id)
 
-    db_ad.message = "تم نشر إعلانك بنجاح! قد يستغرق ظهوره في نتائج البحث بضع دقائق."
+    db_ad.message = "ØªÙ… Ù†Ø´Ø± Ø¥Ø¹Ù„Ø§Ù†Ùƒ Ø¨Ù†Ø¬Ø§Ø­! Ù‚Ø¯ ÙŠØ³ØªØºØ±Ù‚ Ø¸Ù‡ÙˆØ±Ù‡ ÙÙŠ Ù†ØªØ§Ø¦Ø¬ Ø§Ù„Ø¨Ø­Ø« Ø¨Ø¶Ø¹ Ø¯Ù‚Ø§Ø¦Ù‚."
 
     return db_ad
 
@@ -2474,10 +2463,10 @@ def update_ad(
         update_dict["location"] = f"{attributes['city']}, {attributes['region']}"
     elif "location" in update_dict and update_dict["location"]:
         loc = update_dict["location"]
-        if "،" in loc or "," in loc:
-            parts = [p.strip() for p in loc.replace("،", ",").split(",")]
+        if "ØŒ" in loc or "," in loc:
+            parts = [p.strip() for p in loc.replace("ØŒ", ",").split(",")]
             if len(parts) == 2:
-                city_names = {"عمان", "إربد", "اربد", "الزرقاء", "زرقاء", "المفرق", "مفرق", "جرش", "عجلون", "البلقاء", "مادبا", "الكرك", "كرك", "الطفيلة", "طفيلة", "معان", "العقبة", "عقبة", "محافظة العاصمة"}
+                city_names = {"Ø¹Ù…Ø§Ù†", "Ø¥Ø±Ø¨Ø¯", "Ø§Ø±Ø¨Ø¯", "Ø§Ù„Ø²Ø±Ù‚Ø§Ø¡", "Ø²Ø±Ù‚Ø§Ø¡", "Ø§Ù„Ù…ÙØ±Ù‚", "Ù…ÙØ±Ù‚", "Ø¬Ø±Ø´", "Ø¹Ø¬Ù„ÙˆÙ†", "Ø§Ù„Ø¨Ù„Ù‚Ø§Ø¡", "Ù…Ø§Ø¯Ø¨Ø§", "Ø§Ù„ÙƒØ±Ùƒ", "ÙƒØ±Ùƒ", "Ø§Ù„Ø·ÙÙŠÙ„Ø©", "Ø·ÙÙŠÙ„Ø©", "Ù…Ø¹Ø§Ù†", "Ø§Ù„Ø¹Ù‚Ø¨Ø©", "Ø¹Ù‚Ø¨Ø©", "Ù…Ø­Ø§ÙØ¸Ø© Ø§Ù„Ø¹Ø§ØµÙ…Ø©"}
                 if parts[1] in city_names:
                     update_dict["location"] = f"{parts[1]}, {parts[0]}"
 
@@ -2518,7 +2507,7 @@ def update_ad(
     # Handle automatic region creation if location specifies a new region
     if "location" in update_dict and update_dict["location"]:
         loc_str = update_dict["location"].strip()
-        loc_str = loc_str.replace("،", ",").replace("-", ",").replace(" - ", ",")
+        loc_str = loc_str.replace("ØŒ", ",").replace("-", ",").replace(" - ", ",")
         if "," in loc_str:
             parts = [p.strip() for p in loc_str.split(",")]
             if len(parts) >= 2:
@@ -2526,8 +2515,8 @@ def update_ad(
                 region_name = parts[1]
                 
                 c_norm = norm_str(city_name)
-                if c_norm == norm_str("محافظة العاصمة"): c_norm = norm_str("عمان")
-                elif c_norm.startswith(norm_str("محافظة ")): c_norm = c_norm.replace(norm_str("محافظة "), "")
+                if c_norm == norm_str("Ù…Ø­Ø§ÙØ¸Ø© Ø§Ù„Ø¹Ø§ØµÙ…Ø©"): c_norm = norm_str("Ø¹Ù…Ø§Ù†")
+                elif c_norm.startswith(norm_str("Ù…Ø­Ø§ÙØ¸Ø© ")): c_norm = c_norm.replace(norm_str("Ù…Ø­Ø§ÙØ¸Ø© "), "")
                 
                 city = db.query(models.City).filter(norm_col(models.City.name_ar) == c_norm).first()
                 if city:
@@ -2539,7 +2528,7 @@ def update_ad(
                     
                     if not region:
                         # Fallback to other if region doesn't exist to prevent duplicates
-                        update_dict["location"] = f"{city_name}, أخرى"
+                        update_dict["location"] = f"{city_name}, Ø£Ø®Ø±Ù‰"
                     else:
                         update_dict["location"] = f"{city.name_ar}, {region.name_ar}"
 
@@ -2584,8 +2573,8 @@ def update_ad(
         background_tasks.add_task(
             send_personal_notification,
             target_user_id=db_ad.user_id,
-            title="تم نشر إعلانك بنجاح ✅",
-            body=f"إعلانك '{db_ad.title[:50]}' تم نشره بنجاح وأصبح متاحاً للجميع.",
+            title="ØªÙ… Ù†Ø´Ø± Ø¥Ø¹Ù„Ø§Ù†Ùƒ Ø¨Ù†Ø¬Ø§Ø­ âœ…",
+            body=f"Ø¥Ø¹Ù„Ø§Ù†Ùƒ '{db_ad.title[:50]}' ØªÙ… Ù†Ø´Ø±Ù‡ Ø¨Ù†Ø¬Ø§Ø­ ÙˆØ£ØµØ¨Ø­ Ù…ØªØ§Ø­Ø§Ù‹ Ù„Ù„Ø¬Ù…ÙŠØ¹.",
             notification_type="ad_created",
             reference_id=db_ad.id
         )
@@ -2795,10 +2784,10 @@ def toggle_publish_ad(
         raise HTTPException(status_code=403, detail="Not authorized to modify this ad")
     
     if not db_ad.is_published:
-        if not db_ad.image_urls or len(db_ad.image_urls) < 3:
+        if not image_urls or len(image_urls) < 3:
             raise HTTPException(
                 status_code=400,
-                detail="لابد من رفع 3 صور على الأقل لنشر الإعلان"
+                detail="Ù„Ø§Ø¨Ø¯ Ù…Ù† Ø±ÙØ¹ 3 ØµÙˆØ± Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„ Ù„Ù†Ø´Ø± Ø§Ù„Ø¥Ø¹Ù„Ø§Ù†"
             )
             
     db_ad.is_published = not db_ad.is_published
@@ -2810,8 +2799,8 @@ def toggle_publish_ad(
         background_tasks.add_task(
             send_personal_notification,
             target_user_id=db_ad.user_id,
-            title="إعلانك الآن مرئي للجميع 🟢",
-            body=f"'{db_ad.title[:50]}' تم نشره وأصبح متاحاً للمستخدمين.",
+            title="Ø¥Ø¹Ù„Ø§Ù†Ùƒ Ø§Ù„Ø¢Ù† Ù…Ø±Ø¦ÙŠ Ù„Ù„Ø¬Ù…ÙŠØ¹ ðŸŸ¢",
+            body=f"'{db_ad.title[:50]}' ØªÙ… Ù†Ø´Ø±Ù‡ ÙˆØ£ØµØ¨Ø­ Ù…ØªØ§Ø­Ø§Ù‹ Ù„Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ†.",
             notification_type="ad_published",
             reference_id=db_ad.id
         )
@@ -2819,8 +2808,8 @@ def toggle_publish_ad(
         background_tasks.add_task(
             send_personal_notification,
             target_user_id=db_ad.user_id,
-            title="تم إيقاف إعلانك 🔴",
-            body=f"'{db_ad.title[:50]}' لم يعد مرئياً للمستخدمين.",
+            title="ØªÙ… Ø¥ÙŠÙ‚Ø§Ù Ø¥Ø¹Ù„Ø§Ù†Ùƒ ðŸ”´",
+            body=f"'{db_ad.title[:50]}' Ù„Ù… ÙŠØ¹Ø¯ Ù…Ø±Ø¦ÙŠØ§Ù‹ Ù„Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ†.",
             notification_type="ad_unpublished",
             reference_id=db_ad.id
         )
@@ -2890,8 +2879,8 @@ def notify_phone_revealed(
         background_tasks.add_task(
             send_personal_notification,
             target_user_id=db_ad.user_id,
-            title="قام أحد المستخدمين بإظهار رقمك 📞",
-            body=f"قام أحدهم بإظهار رقم هاتفك في إعلان '{db_ad.title[:30]}'",
+            title="Ù‚Ø§Ù… Ø£Ø­Ø¯ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ† Ø¨Ø¥Ø¸Ù‡Ø§Ø± Ø±Ù‚Ù…Ùƒ ðŸ“ž",
+            body=f"Ù‚Ø§Ù… Ø£Ø­Ø¯Ù‡Ù… Ø¨Ø¥Ø¸Ù‡Ø§Ø± Ø±Ù‚Ù… Ù‡Ø§ØªÙÙƒ ÙÙŠ Ø¥Ø¹Ù„Ø§Ù† '{db_ad.title[:30]}'",
             notification_type="phone_revealed",
             reference_id=ad_id
         )
@@ -2917,8 +2906,8 @@ def notify_chat_started(
         background_tasks.add_task(
             send_personal_notification,
             target_user_id=db_ad.user_id,
-            title="رسالة محتملة جديدة 💬",
-            body=f"مستخدم مهتم بإعلانك '{db_ad.title[:30]}' وانتقل للمحادثة.",
+            title="Ø±Ø³Ø§Ù„Ø© Ù…Ø­ØªÙ…Ù„Ø© Ø¬Ø¯ÙŠØ¯Ø© ðŸ’¬",
+            body=f"Ù…Ø³ØªØ®Ø¯Ù… Ù…Ù‡ØªÙ… Ø¨Ø¥Ø¹Ù„Ø§Ù†Ùƒ '{db_ad.title[:30]}' ÙˆØ§Ù†ØªÙ‚Ù„ Ù„Ù„Ù…Ø­Ø§Ø¯Ø«Ø©.",
             notification_type="chat_started",
             reference_id=ad_id
         )
@@ -2965,8 +2954,8 @@ def record_ad_view(
         background_tasks.add_task(
             send_personal_notification,
             target_user_id=db_ad.user_id,
-            title="تهانينا! إعلانك يحقق مشاهدات عالية 🎉",
-            body=f"وصل إعلانك '{db_ad.title[:30]}' إلى {db_ad.views} مشاهدة!",
+            title="ØªÙ‡Ø§Ù†ÙŠÙ†Ø§! Ø¥Ø¹Ù„Ø§Ù†Ùƒ ÙŠØ­Ù‚Ù‚ Ù…Ø´Ø§Ù‡Ø¯Ø§Øª Ø¹Ø§Ù„ÙŠØ© ðŸŽ‰",
+            body=f"ÙˆØµÙ„ Ø¥Ø¹Ù„Ø§Ù†Ùƒ '{db_ad.title[:30]}' Ø¥Ù„Ù‰ {db_ad.views} Ù…Ø´Ø§Ù‡Ø¯Ø©!",
             notification_type="ad_milestone",
             reference_id=ad_id
         )
@@ -3164,7 +3153,7 @@ def update_my_profile(update_data: schemas.UserUpdate, current_user: models.User
         current_user.avatar_url = update_data.avatar_url
     if update_data.cover_image_url is not None:
         current_user.cover_image_url = update_data.cover_image_url
-    # NOTE: user_type is intentionally NOT settable here — use admin endpoints only
+    # NOTE: user_type is intentionally NOT settable here â€” use admin endpoints only
         
     db.commit()
     db.refresh(current_user)
@@ -3403,16 +3392,16 @@ async def republish_notifier_worker():
                         ad = u_ads[0]
                         await send_personal_notification(
                             target_user_id=user_id,
-                            title="إحصائيات إعلانك 📊",
-                            body=f"حصل إعلانك '{ad.title}' على {ad.views} مشاهدة و {ad.chats_count} محادثة! يمكنك إعادة نشره الآن ليظهر في الأعلى.",
+                            title="Ø¥Ø­ØµØ§Ø¦ÙŠØ§Øª Ø¥Ø¹Ù„Ø§Ù†Ùƒ ðŸ“Š",
+                            body=f"Ø­ØµÙ„ Ø¥Ø¹Ù„Ø§Ù†Ùƒ '{ad.title}' Ø¹Ù„Ù‰ {ad.views} Ù…Ø´Ø§Ù‡Ø¯Ø© Ùˆ {ad.chats_count} Ù…Ø­Ø§Ø¯Ø«Ø©! ÙŠÙ…ÙƒÙ†Ùƒ Ø¥Ø¹Ø§Ø¯Ø© Ù†Ø´Ø±Ù‡ Ø§Ù„Ø¢Ù† Ù„ÙŠØ¸Ù‡Ø± ÙÙŠ Ø§Ù„Ø£Ø¹Ù„Ù‰.",
                             notification_type="republish_available",
                             reference_id=ad.id
                         )
                     else:
                         await send_personal_notification(
                             target_user_id=user_id,
-                            title="إعلانات جاهزة لإعادة النشر 🚀",
-                            body=f"لديك {len(u_ads)} إعلانات جاهزة لإعادة النشر الآن لترتفع إلى أعلى القائمة! اضغط هنا لإعادة نشرها.",
+                            title="Ø¥Ø¹Ù„Ø§Ù†Ø§Øª Ø¬Ø§Ù‡Ø²Ø© Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù†Ø´Ø± ðŸš€",
+                            body=f"Ù„Ø¯ÙŠÙƒ {len(u_ads)} Ø¥Ø¹Ù„Ø§Ù†Ø§Øª Ø¬Ø§Ù‡Ø²Ø© Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù†Ø´Ø± Ø§Ù„Ø¢Ù† Ù„ØªØ±ØªÙØ¹ Ø¥Ù„Ù‰ Ø£Ø¹Ù„Ù‰ Ø§Ù„Ù‚Ø§Ø¦Ù…Ø©! Ø§Ø¶ØºØ· Ù‡Ù†Ø§ Ù„Ø¥Ø¹Ø§Ø¯Ø© Ù†Ø´Ø±Ù‡Ø§.",
                             notification_type="republish_available",
                             reference_id=None
                         )
@@ -3485,20 +3474,20 @@ async def facebook_autopost_worker():
                     continue # Another worker already claimed and processed these
                     
                 category = db.query(models.Category).filter(models.Category.id == category_id).first()
-                category_name = category.name if category else "عقار"
+                category_name = category.name if category else "Ø¹Ù‚Ø§Ø±"
                 
                 categoryHashtag = category_name.replace(" ", "_")
-                regionHashtag = location.replace(" ", "_") if location else "الاردن"
-                hashtags = f"#{categoryHashtag} #{regionHashtag} #عقارات #عقارات_الاردن #سوقكم"
+                regionHashtag = location.replace(" ", "_") if location else "Ø§Ù„Ø§Ø±Ø¯Ù†"
+                hashtags = f"#{categoryHashtag} #{regionHashtag} #Ø¹Ù‚Ø§Ø±Ø§Øª #Ø¹Ù‚Ø§Ø±Ø§Øª_Ø§Ù„Ø§Ø±Ø¯Ù† #Ø³ÙˆÙ‚ÙƒÙ…"
                 
-                msg = f"تبحث عن {category_name} في {location}؟ 🏡✨\nاكتشف أحدث وأفضل {category_name} المعروضة لدينا في هذه المجموعة المميزة! 🌟\n\n"
+                msg = f"ØªØ¨Ø­Ø« Ø¹Ù† {category_name} ÙÙŠ {location}ØŸ ðŸ¡âœ¨\nØ§ÙƒØªØ´Ù Ø£Ø­Ø¯Ø« ÙˆØ£ÙØ¶Ù„ {category_name} Ø§Ù„Ù…Ø¹Ø±ÙˆØ¶Ø© Ù„Ø¯ÙŠÙ†Ø§ ÙÙŠ Ù‡Ø°Ù‡ Ø§Ù„Ù…Ø¬Ù…ÙˆØ¹Ø© Ø§Ù„Ù…Ù…ÙŠØ²Ø©! ðŸŒŸ\n\n"
                 
                 for i, ad in enumerate(ads, 1):
-                    price_str = f"{ad.price} دينار" if ad.price else "تواصل لمعرفة السعر"
-                    title = ad.title[:50] + "..." if ad.title and len(ad.title) > 50 else (ad.title or "عقار")
-                    msg += f"{i}. {title}\n💰 السعر: {price_str}\n🔗 التفاصيل: https://share.sooq-com.com/ad/{ad.id}\n\n"
+                    price_str = f"{ad.price} Ø¯ÙŠÙ†Ø§Ø±" if ad.price else "ØªÙˆØ§ØµÙ„ Ù„Ù…Ø¹Ø±ÙØ© Ø§Ù„Ø³Ø¹Ø±"
+                    title = ad.title[:50] + "..." if ad.title and len(ad.title) > 50 else (ad.title or "Ø¹Ù‚Ø§Ø±")
+                    msg += f"{i}. {title}\nðŸ’° Ø§Ù„Ø³Ø¹Ø±: {price_str}\nðŸ”— Ø§Ù„ØªÙØ§ØµÙŠÙ„: https://share.sooq-com.com/ad/{ad.id}\n\n"
                 
-                msg += "تصفح المزيد على تطبيق وموقع سوقكم! ✨\n\n"
+                msg += "ØªØµÙØ­ Ø§Ù„Ù…Ø²ÙŠØ¯ Ø¹Ù„Ù‰ ØªØ·Ø¨ÙŠÙ‚ ÙˆÙ…ÙˆÙ‚Ø¹ Ø³ÙˆÙ‚ÙƒÙ…! âœ¨\n\n"
                 msg += hashtags
                 
                 main_link = f"https://share.sooq-com.com/ad/{ads[0].id}"
@@ -3519,8 +3508,8 @@ async def facebook_autopost_worker():
                             main_image = ad.image_url
                             
                     if main_image and isinstance(main_image, str):
-                        price_str = f"{ad.price} دينار" if ad.price else "تواصل لمعرفة السعر"
-                        title = ad.title[:30] + "..." if ad.title and len(ad.title) > 30 else (ad.title or "عقار")
+                        price_str = f"{ad.price} Ø¯ÙŠÙ†Ø§Ø±" if ad.price else "ØªÙˆØ§ØµÙ„ Ù„Ù…Ø¹Ø±ÙØ© Ø§Ù„Ø³Ø¹Ø±"
+                        title = ad.title[:30] + "..." if ad.title and len(ad.title) > 30 else (ad.title or "Ø¹Ù‚Ø§Ø±")
                         child_attachments.append({
                             "link": f"https://share.sooq-com.com/ad/{ad.id}",
                             "name": title,
@@ -3587,6 +3576,46 @@ async def sync_ad_views_worker():
             
         await asyncio.sleep(60)
 
+async def deactivate_old_scraper_ads_worker():
+    """Periodically deactivate non-organic ads older than 2 months."""
+    import asyncio
+    from datetime import datetime, timedelta
+    
+    while True:
+        try:
+            from database import SessionLocal
+            from sqlalchemy import update
+            db = SessionLocal()
+            try:
+                two_months_ago = datetime.utcnow() - timedelta(days=60)
+                
+                # Deactivate ads older than 2 months that are NOT organic
+                stmt = (
+                    update(models.Ad)
+                    .where(
+                        models.Ad.created_at <= two_months_ago,
+                        models.Ad.is_published == True,
+                        or_(
+                            models.Ad.source_type != models.SourceType.ORGANIC_USER,
+                            models.Ad.source_url.isnot(None)
+                        )
+                    )
+                    .values(is_published=False)
+                )
+                result = db.execute(stmt)
+                db.commit()
+                if result.rowcount > 0:
+                    print(f"[DEBUG] deactivate_old_scraper_ads_worker successfully deactivated {result.rowcount} old ads.")
+            except Exception as e:
+                db.rollback()
+                print(f"Error bulk deactivating old ads: {e}")
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"Error in deactivate_old_scraper_ads_worker: {e}")
+            
+        await asyncio.sleep(86400) # Check once every 24 hours
+
 from arq import create_pool
 from arq.connections import RedisSettings
 
@@ -3595,6 +3624,7 @@ async def startup_event():
     asyncio.create_task(republish_notifier_worker())
     asyncio.create_task(facebook_autopost_worker())
     asyncio.create_task(sync_ad_views_worker())
+    asyncio.create_task(deactivate_old_scraper_ads_worker())
     
     try:
         redis_host = os.getenv("REDIS_HOST", "redis")
@@ -3616,6 +3646,9 @@ async def startup_event():
             # Add is_active and is_banned to users
             db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE"))
             db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE"))
+            
+            # Add parsed_json to search_query_logs
+            db.execute(text("ALTER TABLE search_query_logs ADD COLUMN IF NOT EXISTS parsed_json JSONB"))
             
             # Create support_messages table if it doesn't exist
             db.execute(text("""
@@ -3651,7 +3684,7 @@ async def startup_event():
     except Exception as e:
         print(f"Critical error during startup DB migrations: {e}")
 
-def log_search_query_task(search: str, results_count: int, user_id: int, category_id: int = None, tags: list = None):
+def log_search_query_task(search: str, results_count: int, user_id: int, category_id: int = None, tags: list = None, parsed_json: dict = None):
     if not search or not search.strip():
         return
     from database import SessionLocal
@@ -3671,7 +3704,8 @@ def log_search_query_task(search: str, results_count: int, user_id: int, categor
             results_count=results_count,
             user_id=user_id,
             category_name=category_name,
-            extracted_tags=tags_str
+            extracted_tags=tags_str,
+            parsed_json=parsed_json
         )
         db.add(log_entry)
         db.commit()
@@ -3729,8 +3763,8 @@ async def check_category_milestone_task(category_id: int):
                     if init_firebase_admin() and firebase_admin._apps:
                         message = messaging.Message(
                             notification=messaging.Notification(
-                                title="إعلانات جديدة 🚀", 
-                                body=f"أكثر من 100 إعلان جديد في قسم {cat.name}! تصفحها الآن"
+                                title="Ø¥Ø¹Ù„Ø§Ù†Ø§Øª Ø¬Ø¯ÙŠØ¯Ø© ðŸš€", 
+                                body=f"Ø£ÙƒØ«Ø± Ù…Ù† 100 Ø¥Ø¹Ù„Ø§Ù† Ø¬Ø¯ÙŠØ¯ ÙÙŠ Ù‚Ø³Ù… {cat.name}! ØªØµÙØ­Ù‡Ø§ Ø§Ù„Ø¢Ù†"
                             ),
                             android=messaging.AndroidConfig(
                                 priority="high",
@@ -3787,3 +3821,4 @@ def update_version_config(req: AppConfigUpdate, current_admin: models.User = Dep
 # Trigger reload
 
 # Trigger reload 2
+

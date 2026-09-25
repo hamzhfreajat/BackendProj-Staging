@@ -521,6 +521,7 @@ async def _async_run_scraper_task(request_data: dict, db: Session):
                                 price=ai_ad.get("price") or 0.0,
                                 location=loc[:255],
                                 source_url=original_post.get("post_url", url)[:255],
+                                source_type=models.SourceType.SCRAPER_BOT,
                                 is_published=True,
                                 category_id=final_category_id,
                                 user_id=user.id,
