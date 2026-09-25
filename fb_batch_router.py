@@ -91,7 +91,15 @@ CRITICAL DESCRIPTION RULES:
 2. Reorganize all property details into clear, bulleted sections using emojis (like 📍 الموقع, 📏 المساحة, 🛏️ التفاصيل الداخلية, 🌟 المميزات).
 3. End with a strong Call-To-Action (CTA) encouraging the reader to contact quickly (e.g. 📞 بادر بالاتصال الآن!).
 4. Ensure the language used is premium, SEO-optimized, and sounds like an elite real estate agency. Do NOT just copy the source text!
-- price        (float) -- Extract the exact numeric price. Support eastern arabic numbers (e.g. ٥٠ دينار is 50.0). Look carefully for implicit rent/sale numbers. Return 0.0 ONLY if strictly missing. Do not return strings!
+- price: (float) Extract the EXACT, fully-written numeric price in JOD.
+  CRITICAL ZERO-TOLERANCE PRICE RULES:
+  1. Every real estate ad MUST have a clear, unambiguous, and fully-written numeric price (e.g., 40000, 250, 65000).
+  2. DO NOT guess. If there is a number but you are not 100% absolutely certain that it is the total price, you MUST reject the ad.
+  3. NO ABBREVIATIONS: If a sale ad says "بـ 40" or "40 الف" instead of 40000, REJECT the ad. Do not multiply or correct it.
+  4. NO "PRICE ON CALL": If the ad says "السعر عند الاتصال" or "للاستفسار", REJECT the ad.
+  5. NO MULTIPLE/AMBIGUOUS PRICES: If the ad mentions down payments and installments (دفعة وقسط) without a clear total price, REJECT the ad.
+  6. DO NOT confuse phone numbers, property area, floor number, or number of rooms with the price.
+  *HOW TO REJECT*: If ANY of the above conditions fail, you MUST set `category_name` to an empty string, `price` to `0.0`, and write the exact reason in `rejection_reason` (e.g. "Price is missing, abbreviated, or ambiguous").
 -location      (string) -- The geographic location. For real estate/apartments, format as 'المدينة, المنطقة' (e.g. عمان, عبدون). For lands (الأراضي), format as 'المحافظة, المديرية, القرية, الحوض' if mentioned (e.g. إربد, لواء بني كنانة, عقربا, حوض البلد). Keep empty if not found.
 CRITICAL LOCATION RULES:
 1. In Aqaba (العقبة), "المنطقة الأولى" maps to "العقبة, السكنية 1", "المنطقة الثانية" maps to "العقبة, السكنية 2", "المنطقة الثالثة" maps to "العقبة, السكنية 3", "المنطقة الرابعة" maps to "العقبة, السكنية 4", "الخامسة" to "العقبة, السكنية 5", "السادسة" to "العقبة, السكنية 6", "السابعة" to "العقبة, السكنية 7", "الثامنة" to "العقبة, السكنية 8", "التاسعة" to "العقبة, السكنية 9", and "العاشرة" to "العقبة, السكنية 10".
@@ -178,7 +186,15 @@ Now, process the following post. Respond ONLY with a JSON object.
 
 Extract:
 - title: (string) generate a concise, professional arabic title (Empty if category_id is 0)
-- price: (float) numeric price (0.0 if missing)
+- price: (float) Extract the EXACT, fully-written numeric price in JOD.
+  CRITICAL ZERO-TOLERANCE PRICE RULES:
+  1. Every real estate ad MUST have a clear, unambiguous, and fully-written numeric price (e.g., 40000, 250, 65000).
+  2. DO NOT guess. If there is a number but you are not 100% absolutely certain that it is the total price, you MUST reject the ad.
+  3. NO ABBREVIATIONS: If a sale ad says "بـ 40" or "40 الف" instead of 40000, REJECT the ad. Do not multiply or correct it.
+  4. NO "PRICE ON CALL": If the ad says "السعر عند الاتصال" or "للاستفسار", REJECT the ad.
+  5. NO MULTIPLE/AMBIGUOUS PRICES: If the ad mentions down payments and installments (دفعة وقسط) without a clear total price, REJECT the ad.
+  6. DO NOT confuse phone numbers, property area, floor number, or number of rooms with the price.
+  *HOW TO REJECT*: If ANY of the above conditions fail, you MUST set `category_name` to an empty string, `price` to `0.0`, and write the exact reason in `rejection_reason` (e.g. "Price is missing, abbreviated, or ambiguous").
 - location: (string) Extract the exact city and region found in the post. Format as "City, Region" (e.g. "عمان, عبدون") if known, otherwise just output the region name. You MUST ONLY use regions that officially exist in the Valid Regions List. If the specific neighborhood is completely unknown or not a standard region, output \'City, أخرى\'. NEVER invent or hallucinate a new region name! 
   CRITICAL LOCATION RULES: 
   1. In Aqaba, "المنطقة الثالثة" maps to "العقبة, السكنية 3", "الرابعة" to "العقبة, السكنية 4", "الخامسة" to "العقبة, السكنية 5", "السادسة" to "العقبة, السكنية 6", "السابعة" to "العقبة, السكنية 7", "الثامنة" to "العقبة, السكنية 8", "التاسعة" to "العقبة, السكنية 9", "العاشرة" to "العقبة, السكنية 10".
