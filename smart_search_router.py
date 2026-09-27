@@ -66,6 +66,8 @@ Intent mapping:
 - search: Looking for properties (e.g. "شقة للايجار", "بدي استأجر", "عقارات")
 - post_ad: Wants to sell or rent out their own property (e.g. "عندي شقة للبيع", "بدي انزل اعلان")
 
+CRITICAL RULE: Words like (الثالثه, الرابعه, الخامسه, السادسه, السابعه, الثامنه, التاسعه, العاشره) are OFTEN regions in Aqaba. DO NOT extract them as floor numbers (floor_numbers) UNLESS the user explicitly says "طابق" (floor) before them. Extract them as locations instead!
+
 Available Categories (End-level only):
 {categories_str}
 
