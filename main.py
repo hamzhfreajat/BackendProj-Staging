@@ -3705,7 +3705,7 @@ async def startup_event():
                 )
             
             # Amman Regions
-            amman_regions = ["عين الباشا"]
+            amman_regions = ["عين الباشا", "الجامعة الأردنية"]
             for rname in amman_regions:
                 db.execute(
                     text("INSERT INTO regions (name_ar, name, city_id) SELECT :rname, :rname, id FROM cities WHERE name_ar = 'عمان' AND NOT EXISTS (SELECT 1 FROM regions WHERE name_ar = :rname AND city_id = cities.id)"),
