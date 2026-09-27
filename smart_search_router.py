@@ -820,8 +820,9 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         db.commit()
     except Exception as e:
         logger.error(f"Failed to log search query: {e}")
-        if count > 0:
-            return SmartSearchResponse(intent=intent, result_count=count, filters_applied=applied_filters, suggestion="لم نجد نتائج في هذه المنطقة تحديداً، تم عرض نتائج المدينة كاملة.")
+        
+    if count > 0:
+        return SmartSearchResponse(intent=intent, result_count=count, filters_applied=applied_filters, suggestion="لم نجد نتائج في هذه المنطقة تحديداً، تم عرض نتائج المدينة كاملة.")
             
     return SmartSearchResponse(
         intent=intent,
