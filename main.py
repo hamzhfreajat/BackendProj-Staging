@@ -3649,7 +3649,7 @@ async def startup_event():
             db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE"))
             
             # Add parsed_json to search_query_logs
-            db.execute(text("ALTER TABLE search_query_logs SELECT 1"))
+            # (Previously attempted to add column here, now removed)
             
             # Add original_created_at to ads
             db.execute(text("ALTER TABLE ads ADD COLUMN IF NOT EXISTS original_created_at TIMESTAMP DEFAULT NOW()"))
