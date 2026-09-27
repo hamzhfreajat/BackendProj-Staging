@@ -3705,12 +3705,17 @@ async def startup_event():
                 )
             
             # Amman Regions
-            amman_regions = ["عين الباشا", "الجامعة الأردنية"]
+            amman_regions = ["عين الباشا"]
             for rname in amman_regions:
                 db.execute(
                     text("INSERT INTO regions (name_ar, name, city_id) SELECT :rname, :rname, id FROM cities WHERE name_ar = 'عمان' AND NOT EXISTS (SELECT 1 FROM regions WHERE name_ar = :rname AND city_id = cities.id)"),
                     {"rname": rname}
                 )
+            
+            # Rename existing شارع الجامعة in Amman to include الجامعة الأردنية
+            db.execute(text("UPDATE regions SET name_ar = 'شارع الجامعة (الجامعة الأردنية)', name = 'شارع الجامعة (الجامعة الأردنية)' WHERE name_ar = 'شارع الجامعة' AND city_id IN (SELECT id FROM cities WHERE name_ar = 'عمان')"))
+            # Cleanup the previous standalone insert just in case
+            db.execute(text("DELETE FROM regions WHERE name_ar = 'الجامعة الأردنية' AND city_id IN (SELECT id FROM cities WHERE name_ar = 'عمان')"))
 
             db.commit()
         except Exception as e:
