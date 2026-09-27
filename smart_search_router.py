@@ -66,7 +66,7 @@ Intent mapping:
 - search: Looking for properties (e.g. "شقة للايجار", "بدي استأجر", "عقارات")
 - post_ad: Wants to sell or rent out their own property (e.g. "عندي شقة للبيع", "بدي انزل اعلان")
 
-CRITICAL RULE: Words like (الثالثه, الرابعه, الخامسه, السادسه, السابعه, الثامنه, التاسعه, العاشره) are OFTEN regions in Aqaba. DO NOT extract them as floor numbers (floor_numbers) UNLESS the user explicitly says "طابق" (floor) before them. Extract them as locations instead!
+CRITICAL RULE: Words like (الثالثه, الرابعه, الخامسه, السادسه, السابعه, الثامنه, التاسعه, العاشره) are OFTEN regions in Aqaba. DO NOT extract them as floor numbers (floor_numbers) UNLESS the user explicitly says "طابق" (floor) before them. You MUST extract the exact word (e.g. "الثامنه") into the `locations` array!
 
 Available Categories (End-level only):
 {categories_str}
@@ -529,7 +529,16 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         if "مستقل" not in text_clean:
             category_id = 301  # شقق للايجار
     raw_locations = raw.get("locations") or []
+
+    # MANUAL INTERCEPT: DeepSeek struggles to extract Arabic ordinals as locations
+    for aq_ord in ["ثالثه", "رابعه", "خامسه", "سادسه", "سابعه", "ثامنه", "تاسعه", "عاشره"]:
+        if aq_ord in text_clean and aq_ord not in [normalize_arabic(l) for l in raw_locations]:
+            raw_locations.append(aq_ord)
     
+    for am_ord in ["ثالث", "رابع", "خامس", "سادس", "سابع", "ثامن", "تاسع"]:
+        if f"دوار {am_ord}" in text_clean or f"دوار ال{am_ord}" in text_clean:
+            raw_locations.append(f"دوار {am_ord}")
+            
     WEST_AMMAN_REGIONS = [
         'ابو نصير', 'الجبيهة', 'الدوار الثالث', 'الدوار الرابع', 'الدوار الخامس', 'الدوار السادس', 
         'الدوار السابع', 'الدوار الثامن', 'الروابي', 'الصويفية', 'العبدلي', 'المدينة الرياضية', 
