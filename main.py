@@ -3675,7 +3675,7 @@ async def startup_event():
             # Add last_notified_ad_count to categories
             db.execute(text("ALTER TABLE categories ADD COLUMN IF NOT EXISTS last_notified_ad_count INTEGER DEFAULT 0"))
             
-            # Update Aqaba region names
+            # Update/Insert Aqaba region names
             aqaba_updates = {
                 "السكنية 3": "السكنية 3 (الثالثة)",
                 "السكنية 4": "السكنية 4 (الرابعة)",
@@ -3691,6 +3691,27 @@ async def startup_event():
                     text("UPDATE regions SET name_ar = :new_name, name = :new_name WHERE name_ar = :old_name AND city_id IN (SELECT id FROM cities WHERE name_ar = 'العقبة')"),
                     {"new_name": new_name, "old_name": old_name}
                 )
+                db.execute(
+                    text("INSERT INTO regions (name_ar, name, city_id) SELECT :new_name, :new_name, id FROM cities WHERE name_ar = 'العقبة' AND NOT EXISTS (SELECT 1 FROM regions WHERE name_ar = :new_name AND city_id = cities.id)"),
+                    {"new_name": new_name}
+                )
+                
+            # Irbid Regions
+            irbid_regions = ["حي الطوال", "دوار الشهداء", "حديقه طارق", "الزهراء", "دوار اليوسفي", "شارع الجامعة اربد"]
+            for rname in irbid_regions:
+                db.execute(
+                    text("INSERT INTO regions (name_ar, name, city_id) SELECT :rname, :rname, id FROM cities WHERE name_ar = 'اربد' AND NOT EXISTS (SELECT 1 FROM regions WHERE name_ar = :rname AND city_id = cities.id)"),
+                    {"rname": rname}
+                )
+            
+            # Amman Regions
+            amman_regions = ["عين الباشا"]
+            for rname in amman_regions:
+                db.execute(
+                    text("INSERT INTO regions (name_ar, name, city_id) SELECT :rname, :rname, id FROM cities WHERE name_ar = 'عمان' AND NOT EXISTS (SELECT 1 FROM regions WHERE name_ar = :rname AND city_id = cities.id)"),
+                    {"rname": rname}
+                )
+
             db.commit()
         except Exception as e:
             print(f"Migration error: {e}")
