@@ -3688,11 +3688,11 @@ async def startup_event():
             }
             for old_name, new_name in aqaba_updates.items():
                 db.execute(
-                    text("UPDATE regions SET name_ar = :new_name, name = :new_name WHERE name_ar = :old_name AND city_id IN (SELECT id FROM cities WHERE name_ar = 'العقبة')"),
+                    text("UPDATE regions SET name_ar = CAST(:new_name AS VARCHAR), name_en = CAST(:new_name AS VARCHAR) WHERE name_ar = CAST(:old_name AS VARCHAR) AND city_id IN (SELECT id FROM cities WHERE name_ar = 'العقبة')"),
                     {"new_name": new_name, "old_name": old_name}
                 )
                 db.execute(
-                    text("INSERT INTO regions (name_ar, name, city_id) SELECT :new_name, :new_name, id FROM cities WHERE name_ar = 'العقبة' AND NOT EXISTS (SELECT 1 FROM regions WHERE name_ar = :new_name AND city_id = cities.id)"),
+                    text("INSERT INTO regions (name_ar, name_en, city_id) SELECT CAST(:new_name AS VARCHAR), CAST(:new_name AS VARCHAR), id FROM cities WHERE name_ar = 'العقبة' AND NOT EXISTS (SELECT 1 FROM regions WHERE name_ar = CAST(:new_name AS VARCHAR) AND city_id = cities.id)"),
                     {"new_name": new_name}
                 )
                 
@@ -3700,7 +3700,7 @@ async def startup_event():
             irbid_regions = ["حي الطوال", "دوار الشهداء", "حديقه طارق", "الزهراء", "دوار اليوسفي", "شارع الجامعة اربد"]
             for rname in irbid_regions:
                 db.execute(
-                    text("INSERT INTO regions (name_ar, name, city_id) SELECT :rname, :rname, id FROM cities WHERE name_ar = 'اربد' AND NOT EXISTS (SELECT 1 FROM regions WHERE name_ar = :rname AND city_id = cities.id)"),
+                    text("INSERT INTO regions (name_ar, name_en, city_id) SELECT CAST(:rname AS VARCHAR), CAST(:rname AS VARCHAR), id FROM cities WHERE name_ar = 'اربد' AND NOT EXISTS (SELECT 1 FROM regions WHERE name_ar = CAST(:rname AS VARCHAR) AND city_id = cities.id)"),
                     {"rname": rname}
                 )
             
@@ -3708,12 +3708,12 @@ async def startup_event():
             amman_regions = ["عين الباشا"]
             for rname in amman_regions:
                 db.execute(
-                    text("INSERT INTO regions (name_ar, name, city_id) SELECT :rname, :rname, id FROM cities WHERE name_ar = 'عمان' AND NOT EXISTS (SELECT 1 FROM regions WHERE name_ar = :rname AND city_id = cities.id)"),
+                    text("INSERT INTO regions (name_ar, name_en, city_id) SELECT CAST(:rname AS VARCHAR), CAST(:rname AS VARCHAR), id FROM cities WHERE name_ar = 'عمان' AND NOT EXISTS (SELECT 1 FROM regions WHERE name_ar = CAST(:rname AS VARCHAR) AND city_id = cities.id)"),
                     {"rname": rname}
                 )
             
             # Rename existing شارع الجامعة in Amman to include الجامعة الأردنية
-            db.execute(text("UPDATE regions SET name_ar = 'شارع الجامعة (الجامعة الأردنية)', name = 'شارع الجامعة (الجامعة الأردنية)' WHERE name_ar = 'شارع الجامعة' AND city_id IN (SELECT id FROM cities WHERE name_ar = 'عمان')"))
+            db.execute(text("UPDATE regions SET name_ar = 'شارع الجامعة (الجامعة الأردنية)', name_en = 'شارع الجامعة (الجامعة الأردنية)' WHERE name_ar = 'شارع الجامعة' AND city_id IN (SELECT id FROM cities WHERE name_ar = 'عمان')"))
             # Cleanup the previous standalone insert just in case
             db.execute(text("DELETE FROM regions WHERE name_ar = 'الجامعة الأردنية' AND city_id IN (SELECT id FROM cities WHERE name_ar = 'عمان')"))
 
