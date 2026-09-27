@@ -277,8 +277,8 @@ app.include_router(duplicate_router)
 app.include_router(wallet_router.router)
 
 app.include_router(ai_router)
-# from smart_search_router import smart_search_router
-# app.include_router(smart_search_router)
+from smart_search_router import smart_search_router
+app.include_router(smart_search_router)
 app.include_router(media_router)
 app.include_router(og_router)
 app.include_router(auth.router)
@@ -1216,7 +1216,7 @@ def read_ads(
                 "source_type": source_type, "sort_by": sort_by, "tags": tags,
                 "location_search": location_search
             }.items() if v is not None}
-            background_tasks.add_task(log_search_query_task, log_query, len(ranked_ad_ids), user_id_val, category_id, tags, parsed_json)
+            background_tasks.add_task(log_search_query_task, log_query, len(ranked_ad_ids), user_id_val, category_id, tags)
 
         if not ranked_ad_ids:
             return []
@@ -1238,7 +1238,7 @@ def read_ads(
             "source_type": source_type, "sort_by": sort_by, "tags": tags,
             "location_search": location_search
         }.items() if v is not None}
-        background_tasks.add_task(log_search_query_task, log_query, total_results, user_id_val, category_id, tags, parsed_json)
+        background_tasks.add_task(log_search_query_task, log_query, total_results, user_id_val, category_id, tags)
         
     if location and not ignore_location:
         parent_loc = None
@@ -1559,6 +1559,8 @@ def read_ads(
         query = query.order_by(models.Ad.is_featured.desc(), effective_bid.desc(), has_image.desc(), has_price.desc(), is_recent_organic.asc(), batch_id.asc(), is_ai.asc(), models.Ad.created_at.desc(), models.Ad.id.desc())
     elif sort_by == 'strict_newest':
         query = query.order_by(models.Ad.is_featured.desc(), effective_bid.desc(), is_recent_organic.asc(), batch_id.asc(), is_ai.asc(), models.Ad.created_at.desc(), models.Ad.id.desc())
+    elif sort_by == 'dashboard_strict':
+        query = query.order_by(models.Ad.original_created_at.desc(), models.Ad.id.desc())
     elif sort_by == 'premium_first':
         query = query.order_by(models.Ad.is_featured.desc(), effective_bid.desc(), models.Ad.is_hot.desc(), is_recent_organic.asc(), batch_id.asc(), is_ai.asc(), models.Ad.created_at.desc(), models.Ad.id.desc())
     elif sort_by == 'recommended' or sort_by is None:
@@ -2845,7 +2847,6 @@ def republish_ad(ad_id: int, current_user: models.User = Depends(auth.get_curren
     if last_date and datetime.utcnow() - last_date < timedelta(hours=24):
         raise HTTPException(status_code=400, detail="already_republished")
         
-    db_ad.created_at = datetime.utcnow()
     db_ad.last_republished_at = datetime.utcnow()
     db_ad.republish_notification_sent = False
     
@@ -3648,7 +3649,11 @@ async def startup_event():
             db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT FALSE"))
             
             # Add parsed_json to search_query_logs
-            db.execute(text("ALTER TABLE search_query_logs ADD COLUMN IF NOT EXISTS parsed_json JSONB"))
+            db.execute(text("ALTER TABLE search_query_logs SELECT 1"))
+            
+            # Add original_created_at to ads
+            db.execute(text("ALTER TABLE ads ADD COLUMN IF NOT EXISTS original_created_at TIMESTAMP DEFAULT NOW()"))
+            db.execute(text("UPDATE ads SET original_created_at = created_at WHERE original_created_at IS NULL"))
             
             # Create support_messages table if it doesn't exist
             db.execute(text("""
@@ -3669,6 +3674,23 @@ async def startup_event():
             
             # Add last_notified_ad_count to categories
             db.execute(text("ALTER TABLE categories ADD COLUMN IF NOT EXISTS last_notified_ad_count INTEGER DEFAULT 0"))
+            
+            # Update Aqaba region names
+            aqaba_updates = {
+                "السكنية 3": "السكنية 3 (الثالثة)",
+                "السكنية 4": "السكنية 4 (الرابعة)",
+                "السكنية 5": "السكنية 5 (الخامسة)",
+                "السكنية 6": "السكنية 6 (السادسة)",
+                "السكنية 7": "السكنية 7 (السابعة)",
+                "السكنية 8": "السكنية 8 (الثامنة)",
+                "السكنية 9": "السكنية 9 (التاسعة)",
+                "السكنية 10": "السكنية 10 (العاشرة)",
+            }
+            for old_name, new_name in aqaba_updates.items():
+                db.execute(
+                    text("UPDATE regions SET name_ar = :new_name, name = :new_name WHERE name_ar = :old_name AND city_id IN (SELECT id FROM cities WHERE name_ar = 'العقبة')"),
+                    {"new_name": new_name, "old_name": old_name}
+                )
             db.commit()
         except Exception as e:
             print(f"Migration error: {e}")
@@ -3684,7 +3706,7 @@ async def startup_event():
     except Exception as e:
         print(f"Critical error during startup DB migrations: {e}")
 
-def log_search_query_task(search: str, results_count: int, user_id: int, category_id: int = None, tags: list = None, parsed_json: dict = None):
+def log_search_query_task(search: str, results_count: int, user_id: int, category_id: int = None, tags: list = None):
     if not search or not search.strip():
         return
     from database import SessionLocal
@@ -3704,8 +3726,7 @@ def log_search_query_task(search: str, results_count: int, user_id: int, categor
             results_count=results_count,
             user_id=user_id,
             category_name=category_name,
-            extracted_tags=tags_str,
-            parsed_json=parsed_json
+            extracted_tags=tags_str
         )
         db.add(log_entry)
         db.commit()

@@ -246,13 +246,49 @@ def resolve_regions_smart(db: Session, raw_locations: list, city_id: int = None)
     db_candidates = {r.id: {"norm": normalize_arabic(r.name_ar), "obj": r} for r in all_regions}
     city_candidates = {c.id: {"norm": normalize_arabic(c.name_ar), "obj": c} for c in all_cities}
     
+    inferred_city = city_id
+    
+    # PASS 1: Identify explicit cities first to restrict regions
+    for raw_loc in raw_locations:
+        norm_loc = normalize_arabic(raw_loc)
+        if not norm_loc: continue
+        for c_id, c_data in city_candidates.items():
+            if norm_loc == c_data["norm"] or (difflib.SequenceMatcher(None, norm_loc, c_data["norm"]).ratio() > 0.85):
+                inferred_city = c_id
+                break
+
     found_region_ids = []
     not_found_names = []
-    inferred_city = city_id
     
     for raw_loc in raw_locations:
         norm_loc = normalize_arabic(raw_loc)
         if not norm_loc: continue
+        
+        # --- Handle Amman vs Aqaba Ordinals ---
+        aqaba_ordinals = {
+            "الثالثه": "السكنيه 3 (الثالثه)",
+            "الرابعه": "السكنيه 4 (الرابعه)",
+            "الخامسه": "السكنيه 5 (الخامسه)",
+            "السادسه": "السكنيه 6 (السادسه)",
+            "السابعه": "السكنيه 7 (السابعه)",
+            "الثامنه": "السكنيه 8 (الثامنه)",
+            "التاسعه": "السكنيه 9 (التاسعه)",
+            "العاشره": "السكنيه 10 (العاشره)"
+        }
+        amman_ordinals = {
+            "الثالث": "الدوار الثالث",
+            "الرابع": "الدوار الرابع",
+            "الخامس": "الدوار الخامس",
+            "السادس": "الدوار السادس",
+            "السابع": "الدوار السابع",
+            "الثامن": "الدوار الثامن",
+            "التاسع": "الدوار التاسع"
+        }
+        if norm_loc in aqaba_ordinals:
+            norm_loc = aqaba_ordinals[norm_loc]
+        elif norm_loc in amman_ordinals:
+            norm_loc = amman_ordinals[norm_loc]
+        # -------------------------------------
         
         # 0. Check if it's a City directly
         city_matched = False
@@ -276,6 +312,7 @@ def resolve_regions_smart(db: Session, raw_locations: list, city_id: int = None)
                     norm_area = normalize_arabic(area)
                     # Find exact match in DB
                     for r_id, r_data in db_candidates.items():
+                        if inferred_city and r_data["obj"].city_id != inferred_city: continue
                         if r_data["norm"] == norm_area:
                             found_region_ids.append(r_id)
                             if not inferred_city: inferred_city = r_data["obj"].city_id
@@ -289,6 +326,7 @@ def resolve_regions_smart(db: Session, raw_locations: list, city_id: int = None)
         best_score = 0.0
         
         for r_id, r_data in db_candidates.items():
+            if inferred_city and r_data["obj"].city_id != inferred_city: continue
             db_norm = r_data["norm"]
             # Fast exact match
             if norm_loc == db_norm:
@@ -451,7 +489,7 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
                 found_props.append(k)
                 mapped_categories.add(CATEGORY_SYNONYMS[k])
 
-    if len(mapped_categories) > 1:
+    if False:
         props_str = " أو ".join(found_props[:2])
         return SmartSearchResponse(
             intent="search",
@@ -611,6 +649,9 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     
     tags = []
     
+    if "من المالك" in text_clean or "من مالك" in text_clean:
+        tags.append("من المالك مباشرة")
+    
     if raw.get("bedrooms_number") is not None:
         tags.append(f"bedrooms:{raw['bedrooms_number']}")
     
@@ -753,9 +794,9 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     try:
         from models import SearchQueryLog
         query_log = SearchQueryLog(
-            query_text=request.text,
+            query_text=request.text[:500],
             results_count=count,
-            extracted_tags=json.dumps(ai_response)
+            extracted_tags=json.dumps(ai_response)[:500]
         )
         db.add(query_log)
         db.commit()
