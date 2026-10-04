@@ -1203,7 +1203,15 @@ def read_ads(
                 ignore_location = True
         except:
             pass
+
+    if search and search.strip().isdigit():
+        query = query.filter(models.Ad.id == int(search.strip()))
+        search = None
+        
     log_query = original_search if original_search else search
+    if search and search.strip().isdigit():
+        query = query.filter(models.Ad.id == int(search.strip()))
+        search = None # Disable AI full-text search for this numeric ID
     if search:
         ranked_ad_ids = SearchService.search_properties(db, search, limit=1000)
         
@@ -1641,11 +1649,39 @@ def aggregate_ads(
         elif section == 'buy':
             query = query.filter(models.AdSearchIndex.category_id.in_([1, 2])) # Real estate buy
             
-    if location and len(location) > 0:
-        loc_filters = []
-        for loc in location:
-            loc_filters.append(models.Ad.location.ilike(f"%{loc}%"))
-        query = query.filter(or_(*loc_filters))
+    if location and len(location) > 0 and not ignore_location:
+        parent_loc = None
+        target_locs = []
+        
+        first_loc = location[0]
+        if first_loc == "محافظة العاصمة": first_loc = "عمان"
+        elif first_loc.startswith("محافظة "): first_loc = first_loc.replace("محافظة ", "")
+        
+        target_loc_norm = norm_str(first_loc)
+        city = db.query(models.City).filter(norm_col(models.City.name_ar) == target_loc_norm).first()
+        if city:
+            parent_loc = target_loc_norm
+            target_locs = location[1:]
+        else:
+            target_locs = location
+            
+        filters = []
+        if parent_loc and not target_locs:
+            filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}%"))
+        elif parent_loc and target_locs:
+            for t_loc in target_locs:
+                t_loc_norm = norm_str(t_loc)
+                if t_loc_norm == norm_str("كل المناطق"):
+                    filters.append(norm_col(models.Ad.location).ilike(f"{parent_loc}%"))
+                else:
+                    # Enforce that the region is INSIDE the selected city
+                    filters.append(models.Ad.location.ilike(f"{parent_loc}%{t_loc}%"))
+        else:
+            for t_loc in target_locs:
+                filters.append(models.Ad.location.ilike(f"%{t_loc}%"))
+                
+        if filters:
+            query = query.filter(or_(*filters))
         
     if min_price is not None:
         query = query.filter(models.AdSearchIndex.price >= min_price)
@@ -2405,9 +2441,9 @@ def create_ad(
     background_tasks.add_task(
         send_personal_notification,
         target_user_id=db_ad.user_id,
-        title="ØªÙ… Ù†Ø´Ø± Ø¥Ø¹Ù„Ø§Ù†Ùƒ Ø¨Ù†Ø¬Ø§Ø­ âœ…",
-        body=f"Ø¥Ø¹Ù„Ø§Ù†Ùƒ '{db_ad.title[:50]}' ØªÙ… Ù†Ø´Ø±Ù‡ Ø¨Ù†Ø¬Ø§Ø­ ÙˆØ£ØµØ¨Ø­ Ù…ØªØ§Ø­Ø§Ù‹ Ù„Ù„Ø¬Ù…ÙŠØ¹.",
-        notification_type="ad_created",
+        title="تم نشر إعلانك بنجاح ✅",
+            body=f"إعلانك '{db_ad.title[:50]}' تم نشره بنجاح وأصبح متاحاً للجميع.",
+            notification_type="ad_created",
         reference_id=db_ad.id
     )
     
@@ -2575,8 +2611,8 @@ def update_ad(
         background_tasks.add_task(
             send_personal_notification,
             target_user_id=db_ad.user_id,
-            title="ØªÙ… Ù†Ø´Ø± Ø¥Ø¹Ù„Ø§Ù†Ùƒ Ø¨Ù†Ø¬Ø§Ø­ âœ…",
-            body=f"Ø¥Ø¹Ù„Ø§Ù†Ùƒ '{db_ad.title[:50]}' ØªÙ… Ù†Ø´Ø±Ù‡ Ø¨Ù†Ø¬Ø§Ø­ ÙˆØ£ØµØ¨Ø­ Ù…ØªØ§Ø­Ø§Ù‹ Ù„Ù„Ø¬Ù…ÙŠØ¹.",
+            title="تم نشر إعلانك بنجاح ✅",
+            body=f"إعلانك '{db_ad.title[:50]}' تم نشره بنجاح وأصبح متاحاً للجميع.",
             notification_type="ad_created",
             reference_id=db_ad.id
         )
@@ -2801,8 +2837,8 @@ def toggle_publish_ad(
         background_tasks.add_task(
             send_personal_notification,
             target_user_id=db_ad.user_id,
-            title="Ø¥Ø¹Ù„Ø§Ù†Ùƒ Ø§Ù„Ø¢Ù† Ù…Ø±Ø¦ÙŠ Ù„Ù„Ø¬Ù…ÙŠØ¹ ðŸŸ¢",
-            body=f"'{db_ad.title[:50]}' ØªÙ… Ù†Ø´Ø±Ù‡ ÙˆØ£ØµØ¨Ø­ Ù…ØªØ§Ø­Ø§Ù‹ Ù„Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ†.",
+            title="إعلانك الآن مرئي للجميع 🟢",
+            body=f"'{db_ad.title[:50]}' تم نشره وأصبح متاحاً للمستخدمين.",
             notification_type="ad_published",
             reference_id=db_ad.id
         )
@@ -2810,8 +2846,8 @@ def toggle_publish_ad(
         background_tasks.add_task(
             send_personal_notification,
             target_user_id=db_ad.user_id,
-            title="ØªÙ… Ø¥ÙŠÙ‚Ø§Ù Ø¥Ø¹Ù„Ø§Ù†Ùƒ ðŸ”´",
-            body=f"'{db_ad.title[:50]}' Ù„Ù… ÙŠØ¹Ø¯ Ù…Ø±Ø¦ÙŠØ§Ù‹ Ù„Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ†.",
+            title="تم إيقاف إعلانك 🔴",
+            body=f"'{db_ad.title[:50]}' لم يعد مرئياً للمستخدمين.",
             notification_type="ad_unpublished",
             reference_id=db_ad.id
         )
@@ -2880,8 +2916,8 @@ def notify_phone_revealed(
         background_tasks.add_task(
             send_personal_notification,
             target_user_id=db_ad.user_id,
-            title="Ù‚Ø§Ù… Ø£Ø­Ø¯ Ø§Ù„Ù…Ø³ØªØ®Ø¯Ù…ÙŠÙ† Ø¨Ø¥Ø¸Ù‡Ø§Ø± Ø±Ù‚Ù…Ùƒ ðŸ“ž",
-            body=f"Ù‚Ø§Ù… Ø£Ø­Ø¯Ù‡Ù… Ø¨Ø¥Ø¸Ù‡Ø§Ø± Ø±Ù‚Ù… Ù‡Ø§ØªÙÙƒ ÙÙŠ Ø¥Ø¹Ù„Ø§Ù† '{db_ad.title[:30]}'",
+            title="قام أحد المستخدمين بإظهار رقمك 📞",
+            body=f"قام أحدهم بإظهار رقم هاتفك في إعلان '{db_ad.title[:30]}'",
             notification_type="phone_revealed",
             reference_id=ad_id
         )
@@ -2907,8 +2943,8 @@ def notify_chat_started(
         background_tasks.add_task(
             send_personal_notification,
             target_user_id=db_ad.user_id,
-            title="Ø±Ø³Ø§Ù„Ø© Ù…Ø­ØªÙ…Ù„Ø© Ø¬Ø¯ÙŠØ¯Ø© ðŸ’¬",
-            body=f"Ù…Ø³ØªØ®Ø¯Ù… Ù…Ù‡ØªÙ… Ø¨Ø¥Ø¹Ù„Ø§Ù†Ùƒ '{db_ad.title[:30]}' ÙˆØ§Ù†ØªÙ‚Ù„ Ù„Ù„Ù…Ø­Ø§Ø¯Ø«Ø©.",
+            title="رسالة محتملة جديدة 💬",
+            body=f"مستخدم مهتم بإعلانك '{db_ad.title[:30]}' وانتقل للمحادثة.",
             notification_type="chat_started",
             reference_id=ad_id
         )
@@ -2955,8 +2991,8 @@ def record_ad_view(
         background_tasks.add_task(
             send_personal_notification,
             target_user_id=db_ad.user_id,
-            title="ØªÙ‡Ø§Ù†ÙŠÙ†Ø§! Ø¥Ø¹Ù„Ø§Ù†Ùƒ ÙŠØ­Ù‚Ù‚ Ù…Ø´Ø§Ù‡Ø¯Ø§Øª Ø¹Ø§Ù„ÙŠØ© ðŸŽ‰",
-            body=f"ÙˆØµÙ„ Ø¥Ø¹Ù„Ø§Ù†Ùƒ '{db_ad.title[:30]}' Ø¥Ù„Ù‰ {db_ad.views} Ù…Ø´Ø§Ù‡Ø¯Ø©!",
+            title="تهانينا! إعلانك يحقق مشاهدات عالية 🎉",
+            body=f"وصل إعلانك '{db_ad.title[:30]}' إلى {db_ad.views} مشاهدة!",
             notification_type="ad_milestone",
             reference_id=ad_id
         )
@@ -3393,16 +3429,16 @@ async def republish_notifier_worker():
                         ad = u_ads[0]
                         await send_personal_notification(
                             target_user_id=user_id,
-                            title="Ø¥Ø­ØµØ§Ø¦ÙŠØ§Øª Ø¥Ø¹Ù„Ø§Ù†Ùƒ ðŸ“Š",
-                            body=f"Ø­ØµÙ„ Ø¥Ø¹Ù„Ø§Ù†Ùƒ '{ad.title}' Ø¹Ù„Ù‰ {ad.views} Ù…Ø´Ø§Ù‡Ø¯Ø© Ùˆ {ad.chats_count} Ù…Ø­Ø§Ø¯Ø«Ø©! ÙŠÙ…ÙƒÙ†Ùƒ Ø¥Ø¹Ø§Ø¯Ø© Ù†Ø´Ø±Ù‡ Ø§Ù„Ø¢Ù† Ù„ÙŠØ¸Ù‡Ø± ÙÙŠ Ø§Ù„Ø£Ø¹Ù„Ù‰.",
+                            title="إحصائيات إعلانك 📊",
+                            body=f"حصل إعلانك '{ad.title}' على {ad.views} مشاهدة و {ad.chats_count} محادثة! يمكنك إعادة نشره الآن ليظهر في الأعلى.",
                             notification_type="republish_available",
                             reference_id=ad.id
                         )
                     else:
                         await send_personal_notification(
                             target_user_id=user_id,
-                            title="Ø¥Ø¹Ù„Ø§Ù†Ø§Øª Ø¬Ø§Ù‡Ø²Ø© Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù†Ø´Ø± ðŸš€",
-                            body=f"Ù„Ø¯ÙŠÙƒ {len(u_ads)} Ø¥Ø¹Ù„Ø§Ù†Ø§Øª Ø¬Ø§Ù‡Ø²Ø© Ù„Ø¥Ø¹Ø§Ø¯Ø© Ø§Ù„Ù†Ø´Ø± Ø§Ù„Ø¢Ù† Ù„ØªØ±ØªÙØ¹ Ø¥Ù„Ù‰ Ø£Ø¹Ù„Ù‰ Ø§Ù„Ù‚Ø§Ø¦Ù…Ø©! Ø§Ø¶ØºØ· Ù‡Ù†Ø§ Ù„Ø¥Ø¹Ø§Ø¯Ø© Ù†Ø´Ø±Ù‡Ø§.",
+                            title="إعلانات جاهزة لإعادة النشر 🚀",
+                            body=f"لديك {len(u_ads)} إعلانات جاهزة لإعادة النشر الآن لترتفع إلى أعلى القائمة! اضغط هنا لإعادة نشرها.",
                             notification_type="republish_available",
                             reference_id=None
                         )
@@ -3810,7 +3846,7 @@ async def check_category_milestone_task(category_id: int):
                     if init_firebase_admin() and firebase_admin._apps:
                         message = messaging.Message(
                             notification=messaging.Notification(
-                                title="Ø¥Ø¹Ù„Ø§Ù†Ø§Øª Ø¬Ø¯ÙŠØ¯Ø© ðŸš€", 
+                                title="إعلانات جديدة 🚀",
                                 body=f"Ø£ÙƒØ«Ø± Ù…Ù† 100 Ø¥Ø¹Ù„Ø§Ù† Ø¬Ø¯ÙŠØ¯ ÙÙŠ Ù‚Ø³Ù… {cat.name}! ØªØµÙØ­Ù‡Ø§ Ø§Ù„Ø¢Ù†"
                             ),
                             android=messaging.AndroidConfig(
