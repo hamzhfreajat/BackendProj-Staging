@@ -10,10 +10,12 @@ are left in the bucket, so the change can be undone from the printed log.
     python backfill_ad_images.py --apply         # do it
     python backfill_ad_images.py --apply --limit 200
     python backfill_ad_images.py --apply --ad-id 61766
+    python backfill_ad_images.py --apply --source organic   # only ads posted by users
 
 Safe to stop and re-run: converted images are skipped.
 """
 import argparse
+import concurrent.futures
 import json
 import sys
 
@@ -68,6 +70,8 @@ def main():
     parser.add_argument("--apply", action="store_true", help="write changes (default is a dry run)")
     parser.add_argument("--limit", type=int, default=None, help="maximum number of ads to process")
     parser.add_argument("--ad-id", type=int, default=None, help="only this ad")
+    parser.add_argument("--source", choices=["all", "organic", "scraped"], default="all",
+                        help="organic = posted by users, scraped = brought in from Facebook")
     args = parser.parse_args()
 
     r2_client = get_r2_client()
@@ -75,10 +79,17 @@ def main():
         sys.exit("R2 is not configured (R2_ACCESS_KEY_ID / R2_ENDPOINT_URL); nothing to do.")
 
     db = SessionLocal()
-    where = "WHERE id = :ad_id" if args.ad_id else ""
+    conditions, params = [], {}
+    if args.ad_id:
+        conditions.append("id = :ad_id")
+        params["ad_id"] = args.ad_id
+    if args.source == "organic":
+        conditions.append("(source_type IS NULL OR source_type::text = 'ORGANIC_USER')")
+    elif args.source == "scraped":
+        conditions.append("source_type::text IN ('SCRAPER_BOT', 'SCRAPER')")
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     rows = db.execute(
-        text(f"SELECT id, image_url, attributes FROM ads {where} ORDER BY id DESC"),
-        {"ad_id": args.ad_id} if args.ad_id else {},
+        text(f"SELECT id, image_url, attributes FROM ads {where} ORDER BY id DESC"), params
     ).fetchall()
 
     processed = changed = images = 0
@@ -101,6 +112,10 @@ def main():
             continue
 
         cache = {}
+        # Convert this ad's images in parallel; the lists below then read from the cache
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+            for old_url, new_url in zip(pending, executor.map(lambda u: convert(u, r2_client, {}), pending)):
+                cache[old_url] = new_url
         new_column_urls = [convert(u, r2_client, cache) for u in column_urls]
         new_attr_urls = [convert(u, r2_client, cache) for u in attr_urls]
         if new_column_urls == column_urls and new_attr_urls == attr_urls:
