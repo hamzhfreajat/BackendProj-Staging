@@ -45,6 +45,13 @@ def download_and_upload_image(url: str) -> str:
         r2 = get_r2_client()
         if not r2: return url
         
+        # Normal path: resize, compress and store the full and card sizes (see image_processing.py)
+        try:
+            from image_processing import store_image
+            return store_image(content, r2_client=r2)
+        except Exception as e:
+            logger.error(f"Image processing failed, storing original: {e}")
+
         bucket_name = os.getenv("R2_BUCKET_NAME", "joapp-ads")
         public_url = os.getenv("R2_PUBLIC_URL", "https://pub-158212dafa5344d4bbf078a74da2305a.r2.dev").rstrip('/')
         

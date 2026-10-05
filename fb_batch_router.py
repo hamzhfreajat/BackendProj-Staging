@@ -594,7 +594,7 @@ def _upload_imgs_to_r2(image_urls: List[str]) -> List[str]:
     
     def process_url(url):
         if not url: return None
-        if "r2.dev" in url or "cloudflare" in url:
+        if "r2.dev" in url or "cloudflare" in url or url.startswith(public_url_base):
             return url
             
         try:
@@ -609,15 +609,21 @@ def _upload_imgs_to_r2(image_urls: List[str]) -> List[str]:
                     return url
 
                 content_type = resp.headers.get('Content-Type', 'image/jpeg')
+                content = resp.content
+
+                # Normal path: resize, compress and store the full and card sizes (see image_processing.py)
+                try:
+                    from image_processing import store_image
+                    return store_image(content, r2_client=r2_client)
+                except Exception as e:
+                    logger.error(f"Image processing failed, storing original: {e}")
+
                 file_ext = ".png" if "png" in content_type else ".jpg"
                 unique_filename = f"{uuid.uuid4().hex}{file_ext}"
-                
-                # Use resp.raw which is a file-like object directly
-                resp.raw.decode_content = True
-                
+
                 r2_client.upload_fileobj(
-                    resp.raw, 
-                    bucket_name, 
+                    io.BytesIO(content),
+                    bucket_name,
                     unique_filename,
                     ExtraArgs={'ContentType': content_type}
                 )

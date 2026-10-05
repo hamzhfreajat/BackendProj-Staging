@@ -89,6 +89,24 @@ async def upload_media(
             
         if is_image:
             should_bypass_watermark = bypass_watermark or current_user.user_type == "admin"
+
+            # Normal path: resize, compress and store the full and card sizes (see image_processing.py)
+            try:
+                from PIL import Image as PILImage
+                from image_processing import store_image
+                uploaded_urls.append(store_image(
+                    content,
+                    r2_client=r2_client,
+                    watermark=not should_bypass_watermark,
+                    upload_dir=UPLOAD_DIR,
+                ))
+                continue
+            except PILImage.DecompressionBombError:
+                log_file_upload_blocked(get_real_ip(request), request.url.path, "Decompression Bomb Detected", str(current_user.id))
+                raise HTTPException(status_code=400, detail="Image pixel limit exceeded. File is too large.")
+            except Exception as e:
+                # e.g. HEIC without a decoder: store the original file as before
+                logger.error(f"Image processing failed, storing original: {e}")
             # Watermark check bypassed for add ads per user request
             # if not should_bypass_watermark and check_image_bytes_for_watermark(content):
             #     raise HTTPException(status_code=400, detail="Watermark found")
