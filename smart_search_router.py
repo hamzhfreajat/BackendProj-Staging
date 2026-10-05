@@ -207,6 +207,17 @@ def generate_fallback_suggestion(original_filters: dict, alternative_count: int,
     except Exception as e:
         return "لا توجد نتائج مطابقة، جرب تغيير بعض الفلاتر للحصول على نتائج."
 
+def to_int(value):
+    """The AI's output is not reliably typed: a number can arrive as 3, "3", "٣" or
+    "3 غرف". Returns an int, or None when there is no number in it."""
+    import re
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return int(value)
+    match = re.search(r'-?\d+', convert_hindi_numerals(str(value)))
+    return int(match.group(0)) if match else None
+
 def _load_location_data(db: Session):
     cities = [(c.id, c.name_ar) for c in db.query(models.City).all()]
     regions = [(r.id, r.city_id, r.name_ar) for r in db.query(models.Region).all()]
@@ -337,6 +348,12 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
         return SmartSearchResponse(intent=intent, result_count=0, filters_applied={})
         
     raw = ai_response.get("raw_filters") or {}
+
+    # Everything below compares these with integer columns, so make sure they are integers
+    for key in ("bedrooms_number", "bathrooms_number", "min_area_number", "max_area_number"):
+        raw[key] = to_int(raw.get(key))
+    if isinstance(raw.get("locations"), str):
+        raw["locations"] = [raw["locations"]]
     
     # STEP 2: Python Engine Smart Matching
     
@@ -527,10 +544,18 @@ def smart_voice_search(request: SmartSearchRequest, db: Session = Depends(get_db
     if raw.get("floor_word") and raw.get("floor_word") not in floor_words:
         floor_words.append(raw.get("floor_word"))
         
-    floor_numbers = raw.get("floor_numbers") or []
-    if isinstance(floor_numbers, int): floor_numbers = [floor_numbers]
-    if raw.get("floor_number") is not None and raw.get("floor_number") not in floor_numbers:
-        floor_numbers.append(raw.get("floor_number"))
+    raw_floor_numbers = raw.get("floor_numbers") or []
+    if not isinstance(raw_floor_numbers, list): raw_floor_numbers = [raw_floor_numbers]
+    if raw.get("floor_number") is not None:
+        raw_floor_numbers.append(raw.get("floor_number"))
+    # The AI may return floors as 1, "1", "٢" or "الأول"
+    floor_numbers = []
+    for value in raw_floor_numbers:
+        number = to_int(value)
+        if number is None:
+            number = parse_floor(str(value))
+        if number is not None and number not in floor_numbers:
+            floor_numbers.append(number)
         
     for fw in floor_words:
         parsed = parse_floor(fw)
