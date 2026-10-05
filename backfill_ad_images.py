@@ -26,7 +26,8 @@ from database import SessionLocal
 from image_processing import IMAGE_PREFIX, store_image
 from media_router import get_r2_client
 
-MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024
+# Uploads are accepted up to 50MB, so originals can be that large
+MAX_DOWNLOAD_BYTES = 60 * 1024 * 1024
 
 
 def is_converted(url: str) -> bool:
