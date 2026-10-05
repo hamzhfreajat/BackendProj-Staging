@@ -243,6 +243,11 @@ async def cloudflare_edge_caching(request: Request, call_next):
         # Strictly avoid caching user-specific customized endpoints
         if "/my-ads" in path or "/dashboard" in path or "/me" in path:
             return response
+
+        # Reviews change on every submit and the response includes the caller's own review
+        if path.endswith("/reviews"):
+            response.headers["Cache-Control"] = "private, no-store"
+            return response
             
         # Heavy static lookups (categories, locations) - Cache at Cloudflare Edge for 5 minutes
         if path.startswith("/api/categories") or path.startswith("/api/locations"):
@@ -3307,6 +3312,26 @@ def get_dashboard_reports(
 # ---------------------------------------------------------
 from sqlalchemy.exc import IntegrityError
 
+def _display_rating(total, count):
+    """Rating shown to users. Every ad starts from one virtual 5-star review so a single
+    bad review can't define it: one 1-star review gives (5 + 1) / 2 = 3.0."""
+    if not count:
+        return None
+    return round((5 + float(total)) / (count + 1), 2)
+
+def _refresh_ad_rating(db: Session, ad_id: int):
+    """Recomputes the rating summary stored on the ad from its visible reviews."""
+    total, count = db.query(
+        func.coalesce(func.sum(models.AdReview.rating), 0), func.count(models.AdReview.id)
+    ).filter(models.AdReview.ad_id == ad_id, models.AdReview.is_hidden == False).first()
+    # Raw UPDATE so that a review doesn't bump the ad's updated_at
+    db.execute(
+        text("UPDATE ads SET rating_avg = :avg, reviews_count = :count WHERE id = :ad_id"),
+        {"avg": _display_rating(total, count), "count": count, "ad_id": ad_id}
+    )
+    db.commit()
+    return _display_rating(total, count), count
+
 def _ad_review_out(review: models.AdReview, schema=schemas.AdReviewOut):
     out = schema.model_validate(review)
     out.tags = review.tags or []
@@ -3327,8 +3352,8 @@ def get_ad_reviews(
         models.AdReview.ad_id == ad_id,
         models.AdReview.is_hidden == False
     )
-    average, count = visible.with_entities(
-        func.avg(models.AdReview.rating), func.count(models.AdReview.id)
+    total, count = visible.with_entities(
+        func.coalesce(func.sum(models.AdReview.rating), 0), func.count(models.AdReview.id)
     ).first()
 
     breakdown = {str(i): 0 for i in range(1, 6)}
@@ -3351,7 +3376,7 @@ def get_ad_reviews(
             my_review = _ad_review_out(mine)
 
     return schemas.AdReviewsSummary(
-        average_rating=round(float(average or 0), 2),
+        average_rating=_display_rating(total, count) or 0,
         reviews_count=count or 0,
         rating_breakdown=breakdown,
         reviews=[_ad_review_out(r) for r in reviews],
@@ -3362,7 +3387,7 @@ def get_ad_reviews(
         )
     )
 
-@app.post("/api/ads/{ad_id}/reviews", response_model=schemas.AdReviewOut, dependencies=[Depends(auth.get_rate_limiter(10, 60))])
+@app.post("/api/ads/{ad_id}/reviews", response_model=schemas.AdReviewSubmitOut, dependencies=[Depends(auth.get_rate_limiter(10, 60))])
 def submit_ad_review(
     ad_id: int,
     review: schemas.AdReviewCreate,
@@ -3397,6 +3422,7 @@ def submit_ad_review(
         db.rollback()
         raise HTTPException(status_code=409, detail="تم إرسال تقييمك مسبقاً")
     db.refresh(db_review)
+    rating_avg, reviews_count = _refresh_ad_rating(db, ad_id)
 
     # Only notify on a new review so that edits don't spam the advertiser
     if is_new and db_ad.user_id:
@@ -3409,7 +3435,10 @@ def submit_ad_review(
             reference_id=ad_id
         )
 
-    return _ad_review_out(db_review)
+    out = _ad_review_out(db_review, schemas.AdReviewSubmitOut)
+    out.ad_rating_avg = rating_avg
+    out.ad_reviews_count = reviews_count
+    return out
 
 @app.delete("/api/ads/{ad_id}/reviews/mine")
 def delete_my_ad_review(
@@ -3424,7 +3453,8 @@ def delete_my_ad_review(
     db.commit()
     if not deleted:
         raise HTTPException(status_code=404, detail="Review not found")
-    return {"status": "success"}
+    rating_avg, reviews_count = _refresh_ad_rating(db, ad_id)
+    return {"status": "success", "ad_rating_avg": rating_avg, "ad_reviews_count": reviews_count}
 
 def _ad_review_stats_query(db: Session):
     """Per-ad stats over visible reviews: (ad_id, negative_count, reviews_count, average_rating)."""
@@ -3511,6 +3541,7 @@ def set_dashboard_review_visibility(
     db_review.is_hidden = payload.is_hidden
     db.commit()
     db.refresh(db_review)
+    _refresh_ad_rating(db, db_review.ad_id)
     out = _ad_review_out(db_review, schemas.AdReviewAdminOut)
     if db_review.ad:
         out.ad_title = db_review.ad.title
@@ -3522,10 +3553,13 @@ def delete_dashboard_review(
     admin_user: models.User = Depends(auth.get_current_admin),
     db: Session = Depends(get_db)
 ):
-    deleted = db.query(models.AdReview).filter(models.AdReview.id == review_id).delete()
-    db.commit()
-    if not deleted:
+    db_review = db.query(models.AdReview).filter(models.AdReview.id == review_id).first()
+    if not db_review:
         raise HTTPException(status_code=404, detail="Review not found")
+    ad_id = db_review.ad_id
+    db.delete(db_review)
+    db.commit()
+    _refresh_ad_rating(db, ad_id)
     return {"status": "success"}
 
 
@@ -3918,6 +3952,18 @@ async def startup_event():
             
             # Add original_created_at to ads
             db.execute(text("ALTER TABLE ads ADD COLUMN IF NOT EXISTS original_created_at TIMESTAMP DEFAULT NOW()"))
+
+            # Ad rating summary shown on listing cards (same formula as _display_rating)
+            db.execute(text("ALTER TABLE ads ADD COLUMN IF NOT EXISTS rating_avg NUMERIC(3, 2)"))
+            db.execute(text("ALTER TABLE ads ADD COLUMN IF NOT EXISTS reviews_count INTEGER DEFAULT 0"))
+            db.execute(text("""
+                UPDATE ads SET reviews_count = s.n, rating_avg = ROUND((5 + s.total)::numeric / (s.n + 1), 2)
+                FROM (
+                    SELECT ad_id, COUNT(*) AS n, SUM(rating) AS total
+                    FROM ad_reviews WHERE is_hidden = false GROUP BY ad_id
+                ) s
+                WHERE ads.id = s.ad_id AND ads.reviews_count IS DISTINCT FROM s.n
+            """))
             db.execute(text("UPDATE ads SET original_created_at = created_at WHERE original_created_at IS NULL"))
             
             # Create support_messages table if it doesn't exist

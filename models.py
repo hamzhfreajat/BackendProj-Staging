@@ -264,6 +264,9 @@ class Ad(Base):
     is_boosted = Column(Boolean, default=False)
     boost_expiry = Column(TIMESTAMP, nullable=True)
     chats_count = Column(Integer, default=0)
+    # Kept in sync by main._refresh_ad_rating. rating_avg is NULL while the ad has no visible reviews.
+    rating_avg = Column(DECIMAL(3, 2), nullable=True)
+    reviews_count = Column(Integer, default=0, server_default="0")
     favorites_count = Column(Integer, default=0)
     
     # Pay-Per-Click Bidding

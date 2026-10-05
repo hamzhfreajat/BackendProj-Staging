@@ -450,6 +450,8 @@ class Ad(AdBase):
     id: int
     user_id: int
     views: int = 0
+    rating_avg: Optional[float] = None
+    reviews_count: Optional[int] = 0
     is_hot: bool = False
     is_published: bool = False
     is_featured: bool = False
@@ -732,6 +734,11 @@ class AdReviewOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class AdReviewSubmitOut(AdReviewOut):
+    # The ad's refreshed rating summary, so the app can update at once without re-fetching
+    ad_rating_avg: Optional[float] = None
+    ad_reviews_count: int = 0
 
 class AdReviewTags(BaseModel):
     negative: List[str]
