@@ -517,6 +517,23 @@ class AdReport(Base):
     ad = relationship("Ad", backref="reports")
     user = relationship("User")
 
+class AdReview(Base):
+    __tablename__ = "ad_reviews"
+    __table_args__ = (UniqueConstraint("ad_id", "user_id", name="uq_ad_reviews_ad_user"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    ad_id = Column(Integer, ForeignKey("ads.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    rating = Column(Integer, nullable=False) # 1-5
+    tags = Column(JSONB, default=list) # Predefined texts, see schemas.AD_REVIEW_*_TAGS
+    comment = Column(Text, nullable=True)
+    is_hidden = Column(Boolean, default=False, nullable=False, server_default="false") # hidden by admin
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    ad = relationship("Ad")
+    user = relationship("User")
+
 class AdSearchIndex(Base):
     __tablename__ = "ad_search_index"
     

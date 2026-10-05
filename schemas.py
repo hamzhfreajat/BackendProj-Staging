@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from typing import List, Optional, Any
 from datetime import datetime
 import math
@@ -658,6 +658,113 @@ class AdReportOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+# AD REVIEW SCHEMAS
+AD_REVIEW_NEGATIVE_TAGS = [
+    "الشقة مؤجرة",
+    "إعلان مزيف",
+    "سعر غير حقيقي",
+    "معلومات غير حقيقية",
+    "موقع غير صحيح",
+]
+AD_REVIEW_POSITIVE_TAGS = [
+    "إعلان صادق",
+    "السعر مطابق",
+    "معلومات دقيقة",
+    "الموقع صحيح",
+    "معلن متعاون",
+]
+AD_REVIEW_MAX_COMMENT_LENGTH = 500
+# A review with this rating or lower counts as negative
+AD_REVIEW_NEGATIVE_MAX_RATING = 2
+# An ad with at least this many visible negative reviews is flagged in the dashboard
+AD_REVIEW_FLAG_THRESHOLD = 3
+
+class AdReviewCreate(BaseModel):
+    rating: int
+    tags: List[str] = []
+    comment: Optional[str] = None
+
+    @field_validator("rating")
+    @classmethod
+    def validate_rating(cls, v):
+        if v < 1 or v > 5:
+            raise ValueError("rating must be between 1 and 5")
+        return v
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, v):
+        allowed = set(AD_REVIEW_NEGATIVE_TAGS + AD_REVIEW_POSITIVE_TAGS)
+        unique = list(dict.fromkeys(v or []))
+        if any(t not in allowed for t in unique):
+            raise ValueError("unknown review tag")
+        return unique
+
+    @field_validator("comment")
+    @classmethod
+    def validate_comment(cls, v):
+        if v is None:
+            return None
+        v = v.strip()
+        if len(v) > AD_REVIEW_MAX_COMMENT_LENGTH:
+            raise ValueError(f"comment must be at most {AD_REVIEW_MAX_COMMENT_LENGTH} characters")
+        return v or None
+
+    @model_validator(mode="after")
+    def validate_tags_match_rating(self):
+        if self.rating <= AD_REVIEW_NEGATIVE_MAX_RATING and any(t in AD_REVIEW_POSITIVE_TAGS for t in self.tags):
+            raise ValueError("positive tags are not allowed on a negative rating")
+        if self.rating >= 4 and any(t in AD_REVIEW_NEGATIVE_TAGS for t in self.tags):
+            raise ValueError("negative tags are not allowed on a positive rating")
+        return self
+
+class AdReviewOut(BaseModel):
+    id: int
+    ad_id: int
+    user_id: int
+    rating: int
+    tags: List[str] = []
+    comment: Optional[str] = None
+    created_at: datetime
+    reviewer_name: Optional[str] = None
+    reviewer_avatar: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class AdReviewTags(BaseModel):
+    negative: List[str]
+    positive: List[str]
+
+class AdReviewsSummary(BaseModel):
+    average_rating: float = 0.0
+    reviews_count: int = 0
+    rating_breakdown: dict = {} # {"1": count, ..., "5": count}
+    reviews: List[AdReviewOut] = []
+    my_review: Optional[AdReviewOut] = None
+    available_tags: AdReviewTags
+
+class AdReviewAdminOut(AdReviewOut):
+    is_hidden: bool = False
+    ad_title: Optional[str] = None
+    reviewer_phone: Optional[str] = None
+    ad_flagged: bool = False
+
+class AdReviewFlaggedAd(BaseModel):
+    ad_id: int
+    ad_title: Optional[str] = None
+    negative_count: int
+    reviews_count: int
+    average_rating: float
+
+class AdReviewsDashboard(BaseModel):
+    total: int
+    reviews: List[AdReviewAdminOut]
+    flagged_ads: List[AdReviewFlaggedAd]
+
+class AdReviewVisibilityUpdate(BaseModel):
+    is_hidden: bool
 
 class CategoryFiltersPrefs(BaseModel):
     min_price: Optional[float] = None

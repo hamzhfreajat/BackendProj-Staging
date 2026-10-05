@@ -743,6 +743,7 @@ def perform_bulk_action(
             db.query(models.AdSearchIndex).filter(models.AdSearchIndex.ad_id == ad.id).delete()
             db.query(models.SavedAd).filter(models.SavedAd.ad_id == ad.id).delete()
             db.query(models.AdReport).filter(models.AdReport.ad_id == ad.id).delete()
+            db.query(models.AdReview).filter(models.AdReview.ad_id == ad.id).delete()
             db.query(models.AdClickTracking).filter(models.AdClickTracking.ad_id == ad.id).delete()
             db.delete(ad)
         elif req.action == "pause":
@@ -2758,6 +2759,7 @@ def delete_ad(
     db.query(models.AdSearchIndex).filter(models.AdSearchIndex.ad_id == db_ad.id).delete()
     db.query(models.SavedAd).filter(models.SavedAd.ad_id == db_ad.id).delete()
     db.query(models.AdReport).filter(models.AdReport.ad_id == db_ad.id).delete()
+    db.query(models.AdReview).filter(models.AdReview.ad_id == db_ad.id).delete()
     db.query(models.AdClickTracking).filter(models.AdClickTracking.ad_id == db_ad.id).delete()
     
     db.delete(db_ad)
@@ -3296,8 +3298,235 @@ def get_dashboard_reports(
             out.reporter_name = r.user.full_name or r.user.username
             out.reporter_phone = r.user.mobile_number
         result.append(out)
-        
+
     return result
+
+
+# ---------------------------------------------------------
+# AD REVIEW ENDPOINTS
+# ---------------------------------------------------------
+from sqlalchemy.exc import IntegrityError
+
+def _ad_review_out(review: models.AdReview, schema=schemas.AdReviewOut):
+    out = schema.model_validate(review)
+    out.tags = review.tags or []
+    if review.user:
+        out.reviewer_name = review.user.full_name or review.user.username or "مستخدم"
+        out.reviewer_avatar = review.user.avatar_url
+    return out
+
+@app.get("/api/ads/{ad_id}/reviews", response_model=schemas.AdReviewsSummary)
+def get_ad_reviews(
+    ad_id: int,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=50),
+    current_user: models.User = Depends(get_optional_user),
+    db: Session = Depends(get_db)
+):
+    visible = db.query(models.AdReview).filter(
+        models.AdReview.ad_id == ad_id,
+        models.AdReview.is_hidden == False
+    )
+    average, count = visible.with_entities(
+        func.avg(models.AdReview.rating), func.count(models.AdReview.id)
+    ).first()
+
+    breakdown = {str(i): 0 for i in range(1, 6)}
+    for star, star_count in visible.with_entities(
+        models.AdReview.rating, func.count(models.AdReview.id)
+    ).group_by(models.AdReview.rating).all():
+        breakdown[str(star)] = star_count
+
+    reviews = visible.options(joinedload(models.AdReview.user)).order_by(
+        models.AdReview.created_at.desc()
+    ).offset(skip).limit(limit).all()
+
+    my_review = None
+    if current_user:
+        mine = db.query(models.AdReview).filter(
+            models.AdReview.ad_id == ad_id,
+            models.AdReview.user_id == current_user.id
+        ).first()
+        if mine:
+            my_review = _ad_review_out(mine)
+
+    return schemas.AdReviewsSummary(
+        average_rating=round(float(average or 0), 2),
+        reviews_count=count or 0,
+        rating_breakdown=breakdown,
+        reviews=[_ad_review_out(r) for r in reviews],
+        my_review=my_review,
+        available_tags=schemas.AdReviewTags(
+            negative=schemas.AD_REVIEW_NEGATIVE_TAGS,
+            positive=schemas.AD_REVIEW_POSITIVE_TAGS
+        )
+    )
+
+@app.post("/api/ads/{ad_id}/reviews", response_model=schemas.AdReviewOut, dependencies=[Depends(auth.get_rate_limiter(10, 60))])
+def submit_ad_review(
+    ad_id: int,
+    review: schemas.AdReviewCreate,
+    background_tasks: BackgroundTasks,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Create the current user's review for an ad, or update it if one already exists."""
+    db_ad = db.query(models.Ad).filter(models.Ad.id == ad_id).first()
+    if not db_ad:
+        raise HTTPException(status_code=404, detail="Ad not found")
+    if db_ad.user_id == current_user.id:
+        raise HTTPException(status_code=403, detail="لا يمكنك تقييم إعلانك")
+
+    db_review = db.query(models.AdReview).filter(
+        models.AdReview.ad_id == ad_id,
+        models.AdReview.user_id == current_user.id
+    ).first()
+    is_new = db_review is None
+
+    if is_new:
+        db_review = models.AdReview(ad_id=ad_id, user_id=current_user.id)
+        db.add(db_review)
+    db_review.rating = review.rating
+    db_review.tags = review.tags
+    db_review.comment = review.comment
+
+    try:
+        db.commit()
+    except IntegrityError:
+        # Two simultaneous submissions from the same user for the same ad
+        db.rollback()
+        raise HTTPException(status_code=409, detail="تم إرسال تقييمك مسبقاً")
+    db.refresh(db_review)
+
+    # Only notify on a new review so that edits don't spam the advertiser
+    if is_new and db_ad.user_id:
+        background_tasks.add_task(
+            send_personal_notification,
+            target_user_id=db_ad.user_id,
+            title="تقييم جديد على إعلانك ⭐",
+            body=f"حصل إعلانك '{(db_ad.title or '')[:30]}' على تقييم {review.rating} من 5",
+            notification_type="ad_review",
+            reference_id=ad_id
+        )
+
+    return _ad_review_out(db_review)
+
+@app.delete("/api/ads/{ad_id}/reviews/mine")
+def delete_my_ad_review(
+    ad_id: int,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    deleted = db.query(models.AdReview).filter(
+        models.AdReview.ad_id == ad_id,
+        models.AdReview.user_id == current_user.id
+    ).delete()
+    db.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Review not found")
+    return {"status": "success"}
+
+def _ad_review_stats_query(db: Session):
+    """Per-ad stats over visible reviews: (ad_id, negative_count, reviews_count, average_rating)."""
+    negative_count = func.count(models.AdReview.id).filter(
+        models.AdReview.rating <= schemas.AD_REVIEW_NEGATIVE_MAX_RATING
+    )
+    return db.query(
+        models.AdReview.ad_id,
+        negative_count.label("negative_count"),
+        func.count(models.AdReview.id).label("reviews_count"),
+        func.avg(models.AdReview.rating).label("average_rating"),
+    ).filter(models.AdReview.is_hidden == False).group_by(models.AdReview.ad_id).having(
+        negative_count >= schemas.AD_REVIEW_FLAG_THRESHOLD
+    )
+
+@app.get("/api/dashboard/reviews", response_model=schemas.AdReviewsDashboard)
+def get_dashboard_reviews(
+    ad_id: Optional[int] = None,
+    rating: Optional[int] = Query(None, ge=1, le=5),
+    is_hidden: Optional[bool] = None,
+    flagged_only: bool = False,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    admin_user: models.User = Depends(auth.get_current_admin),
+    db: Session = Depends(get_db)
+):
+    flagged_rows = _ad_review_stats_query(db).order_by(text("negative_count DESC")).all()
+    flagged_ids = [row.ad_id for row in flagged_rows]
+    flagged_titles = dict(
+        db.query(models.Ad.id, models.Ad.title).filter(models.Ad.id.in_(flagged_ids)).all()
+    ) if flagged_ids else {}
+
+    query = db.query(models.AdReview)
+    if ad_id is not None:
+        query = query.filter(models.AdReview.ad_id == ad_id)
+    if rating is not None:
+        query = query.filter(models.AdReview.rating == rating)
+    if is_hidden is not None:
+        query = query.filter(models.AdReview.is_hidden == is_hidden)
+    if flagged_only:
+        query = query.filter(models.AdReview.ad_id.in_(flagged_ids))
+
+    total = query.count()
+    reviews = query.options(
+        joinedload(models.AdReview.user), joinedload(models.AdReview.ad)
+    ).order_by(models.AdReview.created_at.desc()).offset(skip).limit(limit).all()
+
+    flagged_set = set(flagged_ids)
+    result = []
+    for r in reviews:
+        out = _ad_review_out(r, schemas.AdReviewAdminOut)
+        if r.ad:
+            out.ad_title = r.ad.title
+        if r.user:
+            out.reviewer_phone = r.user.mobile_number
+        out.ad_flagged = r.ad_id in flagged_set
+        result.append(out)
+
+    return schemas.AdReviewsDashboard(
+        total=total,
+        reviews=result,
+        flagged_ads=[
+            schemas.AdReviewFlaggedAd(
+                ad_id=row.ad_id,
+                ad_title=flagged_titles.get(row.ad_id),
+                negative_count=row.negative_count,
+                reviews_count=row.reviews_count,
+                average_rating=round(float(row.average_rating or 0), 2),
+            )
+            for row in flagged_rows
+        ]
+    )
+
+@app.patch("/api/dashboard/reviews/{review_id}", response_model=schemas.AdReviewAdminOut)
+def set_dashboard_review_visibility(
+    review_id: int,
+    payload: schemas.AdReviewVisibilityUpdate,
+    admin_user: models.User = Depends(auth.get_current_admin),
+    db: Session = Depends(get_db)
+):
+    db_review = db.query(models.AdReview).filter(models.AdReview.id == review_id).first()
+    if not db_review:
+        raise HTTPException(status_code=404, detail="Review not found")
+    db_review.is_hidden = payload.is_hidden
+    db.commit()
+    db.refresh(db_review)
+    out = _ad_review_out(db_review, schemas.AdReviewAdminOut)
+    if db_review.ad:
+        out.ad_title = db_review.ad.title
+    return out
+
+@app.delete("/api/dashboard/reviews/{review_id}")
+def delete_dashboard_review(
+    review_id: int,
+    admin_user: models.User = Depends(auth.get_current_admin),
+    db: Session = Depends(get_db)
+):
+    deleted = db.query(models.AdReview).filter(models.AdReview.id == review_id).delete()
+    db.commit()
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Review not found")
+    return {"status": "success"}
 
 
 # --- Saved Filter Endpoints ---
