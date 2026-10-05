@@ -101,6 +101,10 @@ async def upload_media(
                     upload_dir=UPLOAD_DIR,
                 ))
                 continue
+            except PILImage.UnidentifiedImageError:
+                # Storing a picture we can't read means phones can't display it either
+                log_file_upload_blocked(get_real_ip(request), request.url.path, f"Unreadable image {file_ext}", str(current_user.id))
+                raise HTTPException(status_code=400, detail="تعذّرت قراءة الصورة. يرجى رفع صورة بصيغة JPG أو PNG.")
             except PILImage.DecompressionBombError:
                 log_file_upload_blocked(get_real_ip(request), request.url.path, "Decompression Bomb Detected", str(current_user.id))
                 raise HTTPException(status_code=400, detail="Image pixel limit exceeded. File is too large.")

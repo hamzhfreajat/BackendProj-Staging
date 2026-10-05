@@ -22,6 +22,14 @@ from PIL import Image, ImageOps
 
 logger = logging.getLogger(__name__)
 
+# iPhones save photos as HEIC, which Pillow can't read on its own. Android phones
+# struggle to display HEIC, so these must always be converted to JPEG here.
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except ImportError:
+    logger.warning("pillow-heif is not installed: HEIC photos cannot be converted")
+
 # Above 2x this Pillow raises DecompressionBombError (50MP: covers current phone cameras)
 Image.MAX_IMAGE_PIXELS = 25_000_000
 
